@@ -5,7 +5,7 @@ The operational file. Two parts:
 - **Part A — Greatest hits:** the highest-yield individual prompts, ready to paste.
 - **Part B — Composed session recipes:** multi-step pipelines that chain techniques into a full working session, tuned for the kind of thinking this repo is for — startup ideas, research directions, and life decisions.
 
-If you use the `/ideate` skill, it runs these recipes for you. This file is here for when you want to drive manually or cherry-pick.
+If you use the `/ideate` skill, it runs these recipes for you. Recipe 5 is the exception: `/ideate` should hand off to `/council` so the seats are real models. This file is here for when you want to drive manually or cherry-pick.
 
 ---
 
@@ -159,11 +159,38 @@ the challenge in its terms, and surface 3 ideas only someone hyperfocused on tha
 would have. Then tell me which lens produced the most surprising usable idea and why.
 ```
 
+### Recipe 5 — Council Multi-Model Panel
+*For: "Run this past several real models, let them disagree, then blend."*
+*Operator: `/council`. Method: [`07-multi-model-panel.md`](07-multi-model-panel.md). Do not simulate the other vendors inside one model.*
+
+**Phase 0 — Session.** Copy `council/_template/` → `council/YYYY-MM-DD-slug/`. Fill `00-brief.md`. `git status` baseline. Discover Cursor ids with `cursor-agent --list-models` (never invent ids). Codex inherits the local default.
+
+**Phase 1 — Diverge (orchestrator, judgement OFF).** Write `01-deep-research.md` if needed, then `02-divergent-seeds.md` using the diversity rules in [`07`](07-multi-model-panel.md) (unique mechanisms, weirder tail).
+
+**Phase 2 — Deep-dive (parallel panel, still judgement OFF).** Assign clashing seats ([`07` §3](07-multi-model-panel.md#3-assigning-seats)). Materialize **read-only** prompts under `prompts/` ([`07` §4](07-multi-model-panel.md#4-read-only-panel-prompt)) — one `seat-*.md` per distinct persona. Fan out:
+
+```
+./scripts/cursor-panel.sh --seat {id} council/{slug}/prompts/seat-a.md \
+  --seat {id} council/{slug}/prompts/seat-b.md \
+  --out-dir council/{slug}/panel
+```
+
+Launch Codex in the same operator turn when concurrent tools are available; otherwise serialize and say so. Save `panel/codex-<slug>.md` with exact provenance and append it to `panel/outputs.manifest`. `git status` after. Unexpected diffs → stop and restore.
+
+**Phase 3 — Cross-pollinate (orchestrator).** [`07` §5](07-multi-model-panel.md#5-cross-pollination-merge) → `03-cross-pollination.md`. Read **only** files in `panel/outputs.manifest` (not `panel/README.md` or `prompts/`). Blend across files; keep contradictions.
+
+**Phase 4 — Adversarial.** `/codex:adversarial-review` + Cursor devil's advocate ([`07` §6](07-multi-model-panel.md#6-adversarial-pass)), launched together when tools can run concurrently. Read-only; git-status before/after.
+
+**Phase 5 — Converge (judgement ON).** [`07` §7](07-multi-model-panel.md#7-convergence) → `04-synthesis.md` (KILL / PIVOT / VALIDATE + cheapest test). Curator updates `LEDGER.md` ([`07` §8](07-multi-model-panel.md#8-ledger-governance)): quality-weighted, compact, no panel dumps, no majority vote, no automatic cross-session reuse.
+
+Ask every seat for **conclusions, evidence, assumptions, uncertainty, counterarguments, and a concise rationale** — never hidden chain-of-thought.
+
 ---
 
 ## Combining recipes
 
 - **Whole arc:** Recipe 3 (find whitespace) → Recipe 1 (ideate into it) → Recipe 2 (kill/validate the winner). That's discovery → generation → judgement end to end.
 - **When you're stuck mid-run:** drop in Recipe 4 (lens sweep) or the "Combine two unrelated things" greatest-hit to break the plateau.
+- **When one model is the bottleneck:** Recipe 5 (Council) after Recipe 1 or 3, then Recipe 2 on the winner. Cross-pollination is not a substitute for a kill check.
 
 **A note on honesty in convergence.** The model will drift toward encouragement — it's trained to be agreeable. In every converge phase, explicitly demand bluntness ("do not soften to be nice"), and treat a confident KILL as a successful session, not a failed one.

@@ -104,3 +104,5 @@ The frameworks/modes/methods in [01]–[03] decide *what kind of thinking* to do
 > **Persona rotation (#2) + Quantity-forcing with a no-repeat rule (#4) + high-temperature framing (#6)**, wrapped around whichever generator fits the problem (e.g. Idea Cascade, Conceptual Blending, SCAMPER).
 
 Then hand off to the convergent stack — **Devil's Advocate (#3) + First-Principles ([01 §7](01-creativity-frameworks.md#7-first-principles-thinking)) + the convergence scorer ([03 §8](03-combinatorial-creativity.md#8-convergence-wrapper))** — to cut the pile down honestly. Full composed pipelines are in [`05-prompt-library.md`](05-prompt-library.md).
+
+When you can call **other vendors** (Codex, Cursor CLI models), do not stop at simulated PanelGPT: run Council in [`07-multi-model-panel.md`](07-multi-model-panel.md). Same diverge→converge discipline; actually independent priors.

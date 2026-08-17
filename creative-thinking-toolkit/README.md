@@ -4,7 +4,7 @@ A working library of prompts and thinking modes for **researching and ideating w
 
 Built July 2026 from a sweep of the creativity-research and prompt-engineering literature (de Bono, Koestler, Fauconnier & Turner, Zwicky, TRIZ, SIT, biomimicry, synectics) and the AI-ideation literature (Tree-of-Thoughts, persona prompting, PanelGPT, the Wharton diversity findings). Sources are in [`06-sources.md`](06-sources.md). Every prompt template is reusable — copy it, fill the `{placeholders}`, paste.
 
-There's a companion Claude skill (`.claude/skills/ideate/`) that turns this library into a runnable workflow. Type `/ideate` (or just ask Claude to brainstorm/research a problem in this repo) and it drives a full session using these techniques. This folder is the reference; the skill is the operator.
+There's a companion Claude skill (`.claude/skills/ideate/`) that turns this library into a runnable workflow. Type `/ideate` (or just ask Claude to brainstorm/research a problem in this repo) and it drives a full session using these techniques. For a **real** multi-model panel (Claude + Codex + Cursor CLI), use `/council` and [07](07-multi-model-panel.md) (Recipe 5 in [05](05-prompt-library.md)). This folder is the reference; the skills are the operators.
 
 ---
 
@@ -16,6 +16,7 @@ Most "creative" output from an AI is actually the *average* of everything it's s
 - **Neurodivergent-inspired modes** ([02](02-neurodivergent-thinking-modes.md)) borrow *different information-processing styles* that surface associations a central-tendency mind filters out.
 - **Combinatorial methods** ([03](03-combinatorial-creativity.md)) manufacture *novelty by collision* — new ideas as new combinations of old parts.
 - **LLM-native techniques** ([04](04-llm-divergence-techniques.md)) exploit *how the model itself works* (branching, personas, sampling) to widen the output distribution.
+- **Multi-model panel** ([07](07-multi-model-panel.md)) uses *different vendors in parallel* (Council) so cross-pollination has independent priors, not one model in several hats.
 
 ## The rhythm: diverge, then converge
 
@@ -36,14 +37,16 @@ Doing this with a model is a superpower: it has no ego about its bad ideas, so t
 | [02-neurodivergent-thinking-modes.md](02-neurodivergent-thinking-modes.md) | Nine thinking modes inspired by neurodivergent cognitive styles — Idea Cascade, Synesthetic Translation, Pattern Transfer, Systemizer, Bottom-Up Builder, Deep-Tunnel, Literalist, Assumption Breaker, Random Provocation — with the evidence base and an honest note on its limits |
 | [03-combinatorial-creativity.md](03-combinatorial-creativity.md) | Idea-by-combination: Conceptual Blending, Bisociation, Adjacent Possible, "A Technique for Producing Ideas", Forced Connections, Synectics, Biomimicry, SIT, Mashup ("X for Y") |
 | [04-llm-divergence-techniques.md](04-llm-divergence-techniques.md) | Techniques that exploit the model itself: Tree-of-Thoughts, Persona/Expert prompting, Devil's Advocate, Quantity-Forcing, PanelGPT, Temperature framing, Warm-ups — plus the diversity-trap caveat |
-| [05-prompt-library.md](05-prompt-library.md) | The copy-paste greatest hits, plus **composed session recipes** (full ideation run, kill-the-idea red team, research-a-space) tuned for startup / research / life ideation |
+| [05-prompt-library.md](05-prompt-library.md) | The copy-paste greatest hits, plus **composed session recipes** (full ideation run, kill-the-idea red team, research-a-space, deep-tunnel sweep, **Council multi-model panel**) |
 | [06-sources.md](06-sources.md) | Every source URL, grouped by topic, with research caveats |
+| [07-multi-model-panel.md](07-multi-model-panel.md) | Council method: real heterogeneous models, seat assignment, read-only panel prompts, cross-pollination merge, ledger governance, `--force` / git hygiene |
 
 ## How to actually use this
 
 - **Stuck for ideas?** Start with a generator from [05](05-prompt-library.md) — the "Full Ideation Run" recipe — or grab Idea Cascade + Random Provocation from [02].
 - **Have an idea, want to know if it's real?** Run the "Kill-the-Idea Red Team" recipe in [05]. (This repo's whole ethos is that killing a bad idea early is a win — see `../path-forward/`.)
 - **Exploring a new space / doing research?** Use the "Research-a-Space" recipe in [05], then Pattern Transfer ([02]) and Adjacent Possible ([03]) to find the whitespace.
-- **Want the model to stop being generic?** Layer a persona ([04]), a constraint ([01]), and a "make ideas 11–20 weirder" volume rule ([04]) — genericness dies fast under all three.
+- **Want the model to stop being generic?** Layer a persona ([04](04-llm-divergence-techniques.md)), a constraint ([01](01-creativity-frameworks.md)), and a "make ideas 11–20 weirder" volume rule ([04](04-llm-divergence-techniques.md)) — genericness dies fast under all three.
+- **Want other vendors in the room?** Recipe 5 / `/council` ([07](07-multi-model-panel.md)) — do not fake Grok/Gemini inside one model.
 
 > One caveat carried throughout: the neurodivergent modes in [02] are framed as *cognitive-style-inspired thinking modes*, not clinical claims, diagnoses, or stereotypes — "different, not less." The research is real but not uniform. See the note at the top of that file.

@@ -1,0 +1,4 @@
+# Project-scoped Codex defaults for Council sessions.
+# Do not pin a model ID here — inherit the local Codex / plugin default.
+# Supported effort values: minimal | low | medium | high | xhigh
+model_reasoning_effort = "high"
