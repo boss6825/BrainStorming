@@ -14,22 +14,22 @@ Do not soften. Do not hide panel failures. Do not treat the composite score as e
 
 - Dimensions: **novelty × feasibility × fit**, each scored **1–5**.
 - Composite = novelty × feasibility × fit (max **125**).
-- **Confidence** is scored separately (1–5) and must not inflate composite.
+- **Evidence confidence** is reported separately (`low` | `medium` | `high`) and must not inflate composite.
 - Composite is not evidence. Evidence lives in claims, sources, and adversarial survival.
 
 ## Scorecard
 
-| ID | Candidate | Novelty (1–5) | Feasibility (1–5) | Fit (1–5) | Composite | Confidence (1–5) | Notes |
+| ID | Candidate | Novelty (1–5) | Feasibility (1–5) | Fit (1–5) | Composite | Evidence confidence | Biggest risk |
 |---|---|---|---|---|---|---|---|
-| C1' | {candidate} | {n} | {n} | {n} | {n} | {n} | {note} |
-| C2' | {candidate} | {n} | {n} | {n} | {n} | {n} | {note} |
-| C3' | {candidate} | {n} | {n} | {n} | {n} | {n} | {note} |
+| C1' | {candidate} | {n} | {n} | {n} | {n} | `{low\|medium\|high}` | {risk} |
+| C2' | {candidate} | {n} | {n} | {n} | {n} | `{low\|medium\|high}` | {risk} |
+| C3' | {candidate} | {n} | {n} | {n} | {n} | `{low\|medium\|high}` | {risk} |
 
 ## Top candidates
 
-1. **{candidate}** — composite `{n}`; confidence `{n}`. Why it leads: {reason}. Killer risk: {risk}.
-2. **{candidate}** — composite `{n}`; confidence `{n}`. Why second: {reason}.
-3. **{candidate}** — composite `{n}`; confidence `{n}`. Why third: {reason}.
+1. **{candidate}** — composite `{n}`; evidence confidence `{low|medium|high}`. Why it leads: {reason}. Killer risk: {risk}.
+2. **{candidate}** — composite `{n}`; evidence confidence `{low|medium|high}`. Why second: {reason}.
+3. **{candidate}** — composite `{n}`; evidence confidence `{low|medium|high}`. Why third: {reason}.
 
 ## Final red team of number one
 

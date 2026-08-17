@@ -149,14 +149,9 @@ TASK
 4. List preserved contradictions that later stages must not paper over.
 5. Flag any framing errors the panel collectively exposed.
 
-OUTPUT HEADINGS
-# Cross-pollination
-## Building-block inventory
-## Conceptual blends (at least 3)
-## Bisociations (at least 3)
-## Preserved contradictions
-## Framing errors exposed
-## Handoff set for adversarial review
+Write the result using the structure of `council/_template/03-cross-pollination.md`
+(source map, conceptual blends, bisociations, candidate set for adversarial).
+Do not score novelty, feasibility, or fit yet.
 ```
 
 ---
@@ -307,21 +302,18 @@ RULES
 - Return Markdown for 04-synthesis.md. Do not edit unrelated repo files.
 
 TASK
-1. Score every serious candidate 1–5 on novelty, feasibility, and fit. Show a table.
-2. Recommend a shortlist and give each a verdict: KILL, PIVOT, or VALIDATE.
-3. Red-team the #1 survivor one more time in one tight paragraph.
-4. Name the single cheapest test that would move the best VALIDATE candidate from
-   "maybe" to yes/no this week.
-5. Propose ledger deposits (what to keep, weight 1–5, type, linked contradictions).
+1. Score every serious candidate 1–5 on novelty, feasibility, and fit. Composite =
+   novelty × feasibility × fit. Keep evidence confidence (`low|medium|high`) separate.
+2. Recommend at most three candidates, with the largest risk for each.
+3. Red-team number one again (strongest objections, what must be fundamentally true,
+   shakiest unproven assumption, most likely failure, required redesign).
+4. Give exactly one session verdict: KILL, PIVOT, or VALIDATE. Do not soften it.
+5. Give the single cheapest decisive next test, with confirming evidence, killing
+   evidence, and the decision after either result.
+6. List unresolved contradictions and missing/failed panel members.
+7. Propose only curated ledger deposits that could alter future action.
 
-OUTPUT HEADINGS
-# Synthesis
-## Score table (novelty × feasibility × fit)
-## Verdicts (KILL / PIVOT / VALIDATE)
-## Red-team of #1
-## Cheapest next test
-## Preserved contradictions
-## Proposed ledger deposits
+Write the result using `council/_template/04-synthesis.md`.
 ```
 
 ---
