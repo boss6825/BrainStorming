@@ -3,7 +3,7 @@
 The operational file. Two parts:
 
 - **Part A — Greatest hits:** the highest-yield individual prompts, ready to paste.
-- **Part B — Composed session recipes:** multi-step pipelines that chain techniques into a full working session, tuned for the kind of thinking this repo is for — startup ideas, research directions, and life decisions.
+- **Part B — Composed session recipes:** multi-step pipelines that chain techniques into a full working session, tuned for the kind of thinking this repo is for — startup ideas, research directions, and life decisions — plus a **Council** multi-model run when you have local Claude Code with Cursor Agent and Codex.
 
 If you use the `/ideate` skill, it runs these recipes for you. This file is here for when you want to drive manually or cherry-pick.
 
@@ -159,11 +159,44 @@ the challenge in its terms, and surface 3 ideas only someone hyperfocused on tha
 would have. Then tell me which lens produced the most surprising usable idea and why.
 ```
 
+### Recipe 5 — Council Multi-Model Run
+*For: "I want genuinely independent models to research, disagree, cross-pollinate,
+and then reach an honest decision."*
+
+Requires **local** Claude Code with Cursor Agent and the Codex plugin. Full method and paste-ready prompts live in [`07-multi-model-panel.md`](07-multi-model-panel.md). Prefer `/council`, which owns the session lifecycle and writes the `council/` artifacts. If the toolchain is unavailable (cloud/web mode, missing `cursor-agent` / `codex`), **stop** — do not replace missing models with same-model role-play.
+
+**Invocation brief** (fill, then hand to `/council` or drive the phases manually):
+```
+COUNCIL INVOCATION BRIEF
+
+Question: {question}
+Goal: {goal}
+Hard constraints: {constraints}
+Angles already tried / ruled out: {tried}
+Session slug hint: {slug_hint}
+
+Run Recipe 5 /council Modes 1–5. Use toolkit 07 prompts. Keep panel members
+independent until cross-pollination. Do not simulate missing models.
+```
+
+**Phase 1 — Diverge (Mode 1).** Orchestrator writes `00-brief.md`, seed research `01-deep-research.md`, and a wide `02-divergent-seeds.md` with judgement off (Idea Cascade / anti-clustering levers from the toolkit).
+
+**Phase 2 — Independent deep dive (Mode 2).** Fan out the Mode 2 prompt from [07](07-multi-model-panel.md) in parallel to Grok, GPT, Gemini, Composer (Cursor) and Codex (`/codex:review`). Save each to `panel/<model>.md`. No model sees other panel answers yet.
+
+**Phase 3 — Cross-pollinate (Mode 3).** Orchestrator runs the Mode 3 prompt from [07](07-multi-model-panel.md) → `03-cross-pollination.md` (≥6 candidates: blends + bisociations; no scoring).
+
+**Phase 4 — Adversarial (Mode 4).** Codex adversarial review + Cursor red team from [07](07-multi-model-panel.md).
+
+**Phase 5 — Converge + ledger (Mode 5).** Orchestrator runs Mode 5 → `04-synthesis.md` (novelty × feasibility × fit; KILL / PIVOT / VALIDATE; cheapest test), then curates `LEDGER.md`.
+
 ---
 
 ## Combining recipes
 
 - **Whole arc:** Recipe 3 (find whitespace) → Recipe 1 (ideate into it) → Recipe 2 (kill/validate the winner). That's discovery → generation → judgement end to end.
 - **When you're stuck mid-run:** drop in Recipe 4 (lens sweep) or the "Combine two unrelated things" greatest-hit to break the plateau.
+- **Recipe 3 → Recipe 5:** Research-a-Space can frame seed research / domain map before a Council Multi-Model Run.
+- **Recipe 5 → Recipe 2:** After Council synthesis, Kill-the-Idea can add an extra validation pass on the survivor.
+- **Recipe 5** remains standalone and is normally run through `/council` (local only).
 
 **A note on honesty in convergence.** The model will drift toward encouragement — it's trained to be agreeable. In every converge phase, explicitly demand bluntness ("do not soften to be nice"), and treat a confident KILL as a successful session, not a failed one.
