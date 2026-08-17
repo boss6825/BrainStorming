@@ -124,7 +124,7 @@ chain-of-thought.
 
 ## 6. Adversarial pass
 
-Codex: `/codex:adversarial-review` on the front-runners (local plugin). Save that output under `panel/` **with the documented Codex provenance header** (`council/_template/panel/README.md`) before listing it in `panel/outputs.manifest`. A raw plugin dump is not provenance-complete.
+Codex: `/codex:adversarial-review` on the front-runners (local plugin). Save that output under `panel/adversarial/` **with the documented Codex provenance header** (`council/_template/panel/README.md`) before listing its basename in `panel/adversarial/outputs.manifest`. Keep the initial `panel/outputs.manifest` unchanged. A raw plugin dump is not provenance-complete.
 
 Cursor: same contract as §4 (read-only, git-status before/after) with the body below, run through `cursor-panel.sh --seat` so the files receive cursor-panel provenance. Use a dedicated directory and its own manifest — do not use `cursor-agent.sh --out` as panel evidence:
 
