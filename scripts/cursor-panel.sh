@@ -148,12 +148,14 @@ for model in "${models[@]}"; do
     echo "error: model ID sanitizes to an empty filename: $model" >&2
     exit 5
   fi
-  for existing in "${sanitized_names[@]:-}"; do
-    if [[ "$existing" == "$sane" ]]; then
-      echo "error: sanitized filename collision for model '$model' → $sane" >&2
-      exit 5
-    fi
-  done
+  if [[ "${#sanitized_names[@]}" -gt 0 ]]; then
+    for existing in "${sanitized_names[@]}"; do
+      if [[ "$existing" == "$sane" ]]; then
+        echo "error: sanitized filename collision for model '$model' → $sane" >&2
+        exit 5
+      fi
+    done
+  fi
   sanitized_names+=("$sane")
   output_paths+=("${out_dir}/${sane}")
 done
@@ -218,9 +220,11 @@ prompt_tmps=()
 
 cleanup_prompt_tmps() {
   local f
-  for f in "${prompt_tmps[@]:-}"; do
-    rm -f -- "$f"
-  done
+  if [[ "${#prompt_tmps[@]}" -gt 0 ]]; then
+    for f in "${prompt_tmps[@]}"; do
+      rm -f -- "$f"
+    done
+  fi
 }
 trap cleanup_prompt_tmps EXIT
 
@@ -238,9 +242,11 @@ kill_pid_tree() {
 on_signal() {
   interrupted=1
   local pid
-  for pid in "${pids[@]:-}"; do
-    kill_pid_tree "$pid"
-  done
+  if [[ "${#pids[@]}" -gt 0 ]]; then
+    for pid in "${pids[@]}"; do
+      kill_pid_tree "$pid"
+    done
+  fi
 }
 trap on_signal INT TERM
 

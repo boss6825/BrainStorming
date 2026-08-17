@@ -48,7 +48,7 @@ Governed shared memory for this Council session. Not a transcript dump.
 - Type: `{working|episodic|semantic|procedural}`
 - Status: `{active|contested|stale|archived}`
 - Weight: `{1-5}`
-- Confidence: `{1-5}`
+- Confidence: `{low|medium|high}`
 - First deposited: `{YYYY-MM-DD}`
 - Last reviewed: `{YYYY-MM-DD}`
 - Review by: `{YYYY-MM-DD}`
@@ -74,7 +74,7 @@ Governed shared memory for this Council session. Not a transcript dump.
 - Type: `{working|episodic|semantic|procedural}`
 - Status: `active`
 - Weight: `{1-5}`
-- Confidence: `{1-5}`
+- Confidence: `{low|medium|high}`
 - First deposited: `{YYYY-MM-DD}`
 - Last reviewed: `{YYYY-MM-DD}`
 - Review by: `{YYYY-MM-DD}`
@@ -97,7 +97,7 @@ Governed shared memory for this Council session. Not a transcript dump.
 - Type: `{…}`
 - Status: `contested`
 - Weight: `{1-5}`
-- Confidence: `{1-5}`
+- Confidence: `{low|medium|high}`
 - First deposited: `{YYYY-MM-DD}`
 - Last reviewed: `{YYYY-MM-DD}`
 - Review by: `{YYYY-MM-DD}`
@@ -120,7 +120,7 @@ Governed shared memory for this Council session. Not a transcript dump.
 - Type: `{…}`
 - Status: `archived`
 - Weight: `{1-5}`
-- Confidence: `{1-5}`
+- Confidence: `{low|medium|high}`
 - First deposited: `{YYYY-MM-DD}`
 - Last reviewed: `{YYYY-MM-DD}`
 - Review by: `{YYYY-MM-DD}`

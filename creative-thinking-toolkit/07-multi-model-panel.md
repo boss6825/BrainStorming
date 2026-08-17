@@ -131,8 +131,9 @@ RULES
 - This is recombination, not judgement. Do not score, rank, or kill candidates yet.
 - Do not collapse disagreement into a fake consensus or majority vote.
 - Preserve contradictions explicitly — unresolved tension is useful signal.
-- Every candidate must cite exactly two source files (panel/*.md paths or seed docs)
-  whose building blocks you combine.
+- Every candidate must combine material from at least two different source files
+  (panel/*.md paths). Seed docs may be cited in addition, not as a substitute for
+  a second panel file.
 - Prefer Conceptual Blending and Bisociation (toolkit 03) over averaging pitches.
 - Separate verified facts, inference, and speculation. Never fabricate citations.
 - Return Markdown only. Do not edit the repository.
@@ -143,7 +144,7 @@ TASK
 2. Produce at least 6 candidates total:
    - at least 3 Conceptual Blends (shared structure + emergent property)
    - at least 3 Bisociations (collision across two frames that don't usually meet)
-3. For each candidate: name, one-line pitch, mechanism, the two source files,
+3. For each candidate: name, one-line pitch, mechanism, at least two source files,
    what each source contributed, and what emerged that neither source had alone.
 4. List preserved contradictions that later stages must not paper over.
 5. Flag any framing errors the panel collectively exposed.
@@ -336,45 +337,36 @@ Operational rules for `LEDGER.md`:
 - **Contradictions flagged** — opposing claims stay linked, never silently merged.
 - **Evaporation** — stale or superseded entries archive out of the working set so old traces stop cueing new work.
 - **Bounded reinforcement** — the same claim may gain at most **+1 weight per session**, preventing runaway confirmation.
-- **Types** — e.g. fact, assumption, candidate, contradiction, decision, open question.
+- **Types** — CoALA-ish stores, not a dump taxonomy: `working` | `episodic` |
+  `semantic` | `procedural` (see the session `LEDGER.md` template).
+- **Status** — `active` | `contested` | `stale` | `archived`. Confidence is
+  `low` | `medium` | `high`, kept separate from weight.
 
 After synthesis, curate with:
 
 ```
 CURATE THE COUNCIL LEDGER
 
-SESSION
-{session_path_or_slug}
+Inputs:
+{synthesis_and_source_files}
 
-SYNTHESIS
-{contents_of_04_synthesis}
+Deposit only claims or procedures that could materially change a later decision.
+Do not deposit raw panel prose, generic advice, rankings, or repeated opinion.
 
-CURRENT LEDGER (working set)
-{contents_of_LEDGER_md}
+For each proposed entry:
+- choose working, episodic, semantic, or procedural;
+- assign weight 1–5 using the ledger scale;
+- state confidence (low | medium | high) and genuinely independent sources;
+- provide first-deposited, last-reviewed, and review-by dates;
+- link contradictions as separate entries;
+- permit at most +1 reinforcement per session;
+- cap weight at 5;
+- give the implication and decay/archive rule.
 
-RULES
-- Deposit only what earned a place; do not paste raw panel output.
-- Assign weight 1–5 and a type (fact | assumption | candidate | contradiction |
-  decision | open_question).
-- Any single claim may increase by at most +1 weight this session.
-- Link contradictions explicitly; never merge them into a false consensus.
-- Archive working-set entries that are stale, superseded, or evaporated.
-- Separate verified facts from inference and speculation.
-- Return the updated ledger Markdown only.
+If evidence conflicts, create linked contested entries. Never manufacture consensus.
+At session close, archive working entries.
 
-TASK
-1. Propose new deposits from this session's synthesis.
-2. Apply bounded reinforcement to existing entries that were re-confirmed.
-3. Flag or link new contradictions.
-4. Move evaporated entries to an archive section.
-5. Leave a one-line session trace (date, slug, verdict summary).
-
-OUTPUT HEADINGS
-# LEDGER
-## Working set
-## Contradictions index
-## Archive
-## Session traces
+Write the result using the session LEDGER.md schema (Active / Contested / Archived).
 ```
 
 ---

@@ -167,16 +167,13 @@ Requires **local** Claude Code with Cursor Agent and the Codex plugin. Full meth
 
 **Invocation brief** (fill, then hand to `/council` or drive the phases manually):
 ```
-COUNCIL INVOCATION BRIEF
-
-Question: {question}
-Goal: {goal}
-Hard constraints: {constraints}
-Angles already tried / ruled out: {tried}
-Session slug hint: {slug_hint}
-
-Run Recipe 5 /council Modes 1–5. Use toolkit 07 prompts. Keep panel members
-independent until cross-pollination. Do not simulate missing models.
+Run a COUNCIL session on: {question}.
+Goal/decision: {goal}.
+Hard constraints: {constraints}.
+Angles already tried or ruled out: {angles}.
+Evidence that should kill the idea: {kill criteria}.
+Use actual Cursor model IDs discovered locally. Keep every deep dive independent,
+cross-pollinate before judging, then return KILL, PIVOT, or VALIDATE.
 ```
 
 **Phase 1 — Diverge (Mode 1).** Orchestrator writes `00-brief.md`, seed research `01-deep-research.md`, and a wide `02-divergent-seeds.md` with judgement off (Idea Cascade / anti-clustering levers from the toolkit).

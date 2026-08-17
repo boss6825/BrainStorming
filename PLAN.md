@@ -1,5 +1,7 @@
 # Plan: A multi-LLM "panel of experts" thinking system
 
+> **Status (Aug 2026):** Phase 1 scaffolding is built in this repo (`council/`, `/council`, `/ask-cursor`, `/council-setup`, `scripts/`, toolkit `07`). This file remains the design spec. Phase 2 is **not** implemented — see [`docs/ROADMAP-api-mode.md`](docs/ROADMAP-api-mode.md).
+
 ## Context — what this is and why
 
 You want this repo to be a **thinking system**, not just a notes folder. The method mirrors how humans actually discover things: one researcher goes deep, another goes deep from a different angle, and the breakthrough comes from **cross-pollinating** their findings. LLMs don't do this on their own — a single model collapses to the "average" answer (the Wharton *diversity trap* your `creative-thinking-toolkit` is already built around).
