@@ -18,8 +18,12 @@ Options:
   --seat <id> <file>     Per-seat prompt file (repeatable)
   --out-dir <dir>        Directory for per-model markdown outputs (required)
   --prompt-file <path>   Shared prompt for --model seats (otherwise stdin)
-  --resume               Skip seats whose output is an existing non-empty
-                         regular file; empty regular files are rerun
+  --resume               Skip a seat only when its output is an existing
+                         non-empty regular file whose header has an exact
+                         matching | Model (exact) | `MODEL` | line for the
+                         requested model. Empty regular files are rerun.
+                         A non-empty regular file with missing or mismatched
+                         provenance is refused (not skipped, not overwritten).
   --overwrite            Replace existing per-model regular output files
   -h, --help             Show this help
 
@@ -41,8 +45,14 @@ Each published file records exact model provenance. A nonzero child is never
 published, even if it wrote a raw file. INT/TERM terminates wrappers so they
 kill their CLI process groups; descendants must not survive.
 
-A line-oriented outputs.manifest is written in --out-dir listing published
-or resume-skipped seat files (not README.md).
+outputs.manifest in --out-dir is the authoritative seat list (not a glob).
+On publication it is rewritten with a canonical comment header, then the merge
+of prior retainable entries and this run's published or resume-skipped seats.
+Duplicates are removed. An existing entry is kept only when it is a safe
+relative basename naming an existing non-empty regular non-symlink artifact
+under --out-dir. Traversal, absolute paths, README.md, and stale or unsafe
+paths are dropped. Manually recorded Codex artifacts that meet those rules
+survive later invocations. Documentation files are not listed.
 
 Environment:
   CURSOR_AGENT_BIN       Passed through to cursor-agent.sh
@@ -111,6 +121,73 @@ EOF
     rm -f -- "$_dest_tmp"
     return "$_pub"
   }
+}
+
+# Print the first header `| Model (exact) | `MODEL` |` value, stopping at ---.
+# 0 if a well-formed row was found, 1 otherwise.
+cursor_panel_header_exact_model() {
+  _file=$1
+  _prefix='| Model (exact) | `'
+  _suffix='` |'
+  while IFS= read -r _line || [ -n "${_line:-}" ]; do
+    _line=$(printf '%s' "$_line" | tr -d '\r')
+    if [ "$_line" = "---" ]; then
+      break
+    fi
+    case "$_line" in
+      "${_prefix}"*"${_suffix}")
+        _mid=${_line#"$_prefix"}
+        _mid=${_mid%"$_suffix"}
+        printf '%s\n' "$_mid"
+        return 0
+        ;;
+    esac
+  done < "$_file"
+  return 1
+}
+
+cursor_panel_provenance_matches() {
+  _file=$1
+  _model=$2
+  _got=$(cursor_panel_header_exact_model "$_file") || _got=""
+  [ -n "$_got" ] && [ "$_got" = "$_model" ]
+}
+
+cursor_panel_resume_refuse_provenance() {
+  # $1 dest, $2 requested model — never skip or overwrite
+  _dest=$1
+  _model=$2
+  _got=$(cursor_panel_header_exact_model "$_dest") || _got=""
+  if [ -z "$_got" ]; then
+    die "resume refused: $_dest is non-empty but missing exact Model (exact) provenance for '$_model'"
+  fi
+  die "resume refused: $_dest provenance mismatch (file has '$_got', requested '$_model')"
+}
+
+# Retain a prior outputs.manifest line only when it is a safe relative basename
+# naming an existing non-empty regular non-symlink artifact under $2.
+cursor_manifest_entry_retainable() {
+  _e=$1
+  _dir=$2
+  _re='^[A-Za-z0-9][A-Za-z0-9._-]*\.md$'
+  if ! [[ "$_e" =~ $_re ]]; then
+    return 1
+  fi
+  _low=$(printf '%s' "$_e" | tr '[:upper:]' '[:lower:]')
+  if [ "$_low" = "readme.md" ]; then
+    return 1
+  fi
+  case "$_e" in
+    */*|*\\*|/*) return 1 ;;
+  esac
+  _path="${_dir}/${_e}"
+  if [ -L "$_path" ]; then
+    return 1
+  fi
+  if [ -f "$_path" ] && [ -s "$_path" ]; then
+    return 0
+  fi
+  return 1
 }
 
 models=()
@@ -239,13 +316,18 @@ mkdir -p -- "$out_dir"
 i=0
 while [ "$i" -lt "${#labels[@]}" ]; do
   dest="$out_dir/${labels[$i]}.md"
+  m=${models[$i]}
   kind=$(cursor_dest_kind "$dest")
   case "$kind" in
     missing)
       ;;
     regular)
       if [ "$resume" -eq 1 ]; then
-        :
+        if cursor_is_complete_regular "$dest"; then
+          if ! cursor_panel_provenance_matches "$dest" "$m"; then
+            cursor_panel_resume_refuse_provenance "$dest" "$m"
+          fi
+        fi
       elif [ "$overwrite" -eq 1 ]; then
         :
       else
@@ -342,6 +424,9 @@ while [ "$i" -lt "${#models[@]}" ]; do
   kind=$(cursor_dest_kind "$dest")
 
   if [ "$resume" -eq 1 ] && cursor_is_complete_regular "$dest"; then
+    if ! cursor_panel_provenance_matches "$dest" "$m"; then
+      cursor_panel_resume_refuse_provenance "$dest" "$m"
+    fi
     printf 'cursor-panel.sh: resume skip %s -> %s\n' "$m" "$dest" >&2
     skip_count=$((skip_count + 1))
     manifest_lines="${manifest_lines}${label}.md"$'\n'
@@ -450,11 +535,51 @@ fi
 
 manifest="$out_dir/outputs.manifest"
 manifest_tmp=$(mktemp "${out_dir}/.outputs.manifest.XXXXXX") || die "failed to create manifest temp"
+
+manifest_nl='
+'
+manifest_merged=""
+manifest_seen="${manifest_nl}"
+
+append_merged_manifest_entry() {
+  _ent=$1
+  [ -n "$_ent" ] || return 0
+  case "$manifest_seen" in
+    *"${manifest_nl}${_ent}${manifest_nl}"*) return 0 ;;
+  esac
+  manifest_seen="${manifest_seen}${_ent}${manifest_nl}"
+  manifest_merged="${manifest_merged}${_ent}${manifest_nl}"
+}
+
+if [ -f "$manifest" ] && [ ! -L "$manifest" ]; then
+  while IFS= read -r _line || [ -n "${_line:-}" ]; do
+    _line=$(printf '%s' "$_line" | tr -d '\r')
+    case "$_line" in
+      ''|'#'*) continue ;;
+    esac
+    if cursor_manifest_entry_retainable "$_line" "$out_dir"; then
+      append_merged_manifest_entry "$_line"
+    else
+      printf 'cursor-panel.sh: dropping stale or unsafe manifest entry: %s\n' "$_line" >&2
+    fi
+  done < "$manifest"
+fi
+
+if [ -n "$manifest_lines" ]; then
+  while IFS= read -r _line || [ -n "${_line:-}" ]; do
+    [ -n "$_line" ] || continue
+    append_merged_manifest_entry "$_line"
+  done <<EOF
+${manifest_lines}
+EOF
+fi
+
 {
   printf '%s\n' '# cursor-panel.sh outputs.manifest'
-  printf '%s\n' '# One basename per published or resume-skipped seat file.'
-  printf '%s\n' '# Documentation files in this directory are not listed.'
-  printf '%s' "$manifest_lines"
+  printf '%s\n' '# Authoritative seat list for this directory (not a glob).'
+  printf '%s\n' '# Merged from prior retainable entries plus this run published or resume-skipped seats; duplicates removed.'
+  printf '%s\n' '# Retain only safe relative basenames naming existing non-empty regular non-symlink artifacts. Traversal, absolute, documentation, and stale or unsafe paths are dropped.'
+  printf '%s' "$manifest_merged"
 } >"$manifest_tmp"
 set +e
 cursor_publish "$manifest_tmp" "$manifest" overwrite

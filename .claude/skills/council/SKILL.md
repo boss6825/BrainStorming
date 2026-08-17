@@ -81,30 +81,31 @@ This is the parallel deepening and the wall-clock saver.
      --out-dir council/YYYY-MM-DD-slug/panel
    ```
 
-   Shared prompt only (no persona split): `--model <id> --model <id> --prompt-file council/YYYY-MM-DD-slug/prompts/shared.md`. Combining `--model` and `--seat` is allowed; only `--model` seats need the shared prompt. Use `--resume` to fill missing seats (skips existing **non-empty regular** files; empty files are rerun; directories/symlinks are refused); `--overwrite` only when the operator means to replace a regular seat file.
-5. **Launch Codex in the same operator turn as the Cursor fan-out** when the runtime can execute tools concurrently (parallel tool calls in one message: `cursor-panel.sh` + `/codex:review` or a fresh Codex turn). If this environment serializes tool calls, say so and run them back-to-back — do not claim wall-clock overlap that did not happen. Save Codex as `panel/codex-<slug>.md` with a provenance header naming the **exact** invocation, and **append that filename to `panel/outputs.manifest`**. Do not invent a Codex model id; inherit the local default from `.codex/config.toml` (effort only) / the plugin.
-6. Confirm every published seat file records **exact model provenance**. Treat `panel/outputs.manifest` as the list of model outputs. `panel/README.md` is not a seat.
+   Shared prompt only (no persona split): `--model <id> --model <id> --prompt-file council/YYYY-MM-DD-slug/prompts/shared.md`. Combining `--model` and `--seat` is allowed; only `--model` seats need the shared prompt. Use `--resume` to fill missing seats: skip only when the existing file is a **non-empty regular** file whose header has an **exact** matching `| Model (exact) | \`id\` |` line for the requested model. Empty regular files are rerun. A non-empty regular file that lacks or mismatches that provenance is refused (not skipped, not overwritten). Directories/symlinks are refused. `--overwrite` only when the operator means to replace a regular seat file. `outputs.manifest` is authoritative: each `cursor-panel.sh` publication merges retainable prior entries (including manually recorded Codex artifacts that are safe relative basenames naming existing non-empty regular non-symlink files) with this run's published or resume-skipped seats, drops stale/unsafe/traversal/absolute paths, and removes duplicates.
+5. **Launch Codex in the same operator turn as the Cursor fan-out** when the runtime can execute tools concurrently (parallel tool calls in one message: `cursor-panel.sh` + `/codex:review` or a fresh Codex turn). If this environment serializes tool calls, say so and run them back-to-back — do not claim wall-clock overlap that did not happen. Save Codex as `panel/codex-<slug>.md` **with the documented provenance header** from `council/_template/panel/README.md` (exact local model id + exact plugin invocation). Only then append that basename to `panel/outputs.manifest`. A raw plugin dump is **not** provenance-complete. Do not invent a Codex model id; inherit the local default from `.codex/config.toml` (effort only) / the plugin.
+6. Confirm every published Cursor seat file records **exact model provenance** (`| Model (exact) | \`id\` |`). Treat `panel/outputs.manifest` as the list of initial model outputs. `panel/README.md` is not a seat. Do not use `cursor-agent.sh` raw `--out` as panel evidence.
 
 If Cursor/Codex cannot run (cloud mode), write the prompt files under `prompts/`, stop, and tell the user to finish Mode 2 locally.
 
 ## Mode 3 — Cross-pollinate (Opus)
 
-Read **only** the files listed in `panel/outputs.manifest` (model outputs). Do not read `panel/README.md` or `prompts/`. Write `03-cross-pollination.md` using Conceptual Blending / Bisociation (toolkit `03` + `07` merge prompt). Keep contradictions visible and cross-linked. Do not average.
+Read **only** the files listed in `panel/outputs.manifest` (initial deep-dive model outputs). Do not read `panel/README.md`, `prompts/`, or `panel/adversarial/` (that pass has not run yet). If the manifest is missing, stop and say so — do not glob `panel/*.md`. Write `03-cross-pollination.md` using Conceptual Blending / Bisociation (toolkit `03` + `07` merge prompt). Keep contradictions visible and cross-linked. Do not average.
 
 ## Mode 4 — Adversarial
 
-Launch `/codex:adversarial-review` and the Cursor devil's-advocate pass **in the same operator turn** when concurrent tool execution is available; otherwise run them back-to-back and say that they were serialized. Cursor red-team still uses toolkit `07` (read-only, git-status before/after), typically:
+Launch `/codex:adversarial-review` and the Cursor devil's-advocate pass **in the same operator turn** when concurrent tool execution is available; otherwise run them back-to-back and say that they were serialized. Cursor red-team still uses toolkit `07` (read-only, git-status before/after). **Always** run it through `cursor-panel.sh --seat` into a dedicated directory so the files receive cursor-panel provenance — never `cursor-agent.sh` raw `--out`:
 
 ```bash
-./scripts/cursor-agent.sh --model <id> --out council/YYYY-MM-DD-slug/panel/<label>-adversarial.md \
-  --prompt-file council/YYYY-MM-DD-slug/prompts/seat-<label>-adversarial.md
+./scripts/cursor-panel.sh \
+  --seat <id> council/YYYY-MM-DD-slug/prompts/seat-<label>-adversarial.md \
+  --out-dir council/YYYY-MM-DD-slug/panel/adversarial
 ```
 
-Append any new seat filename to `panel/outputs.manifest`. Drop notes into `04-synthesis.md`.
+That writes `panel/adversarial/outputs.manifest`. Keep the main `panel/outputs.manifest` limited to the initial deep-dive. Save Codex `/codex:adversarial-review` as `panel/adversarial/codex-<slug>.md` (or similar) with the documented provenance header, then add that basename to `panel/adversarial/outputs.manifest`. Drop notes into `04-synthesis.md`.
 
 ## Mode 5 — Converge (Opus)
 
-Write `04-synthesis.md`: score novelty × feasibility × fit, red-team #1, verdict **KILL / PIVOT / VALIDATE**. Consume blends plus model outputs in `panel/outputs.manifest` (not `panel/README.md`). Then update `LEDGER.md` as curator: compact claims with the **full entry schema** at every status (`active` / `contested` / `stale` / `retracted` / `rejected` / `superseded`), quality notes, `review-by`, contradictions, append-only change log for every transition. Never copy panel bodies into the ledger. Never reuse this ledger automatically in a later session.
+Write `04-synthesis.md`: score novelty × feasibility × fit, red-team #1, verdict **KILL / PIVOT / VALIDATE**. Consume blends plus **initial** model outputs in `panel/outputs.manifest` **and** Cursor red-team outputs in `panel/adversarial/outputs.manifest` (not `panel/README.md`, not prompts, not raw `cursor-agent.sh` files). If the adversarial manifest is missing, say so and do not glob. Then update `LEDGER.md` as curator: compact claims with the **full entry schema** at every status (`active` / `contested` / `stale` / `retracted` / `rejected` / `superseded`), quality notes, `review-by`, contradictions, append-only change log for every transition. Never copy panel bodies into the ledger. Never reuse this ledger automatically in a later session.
 
 ## Routing vs `/ideate`
 

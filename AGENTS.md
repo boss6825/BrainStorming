@@ -59,7 +59,7 @@ You are here to think, not to flatter. This repo's convergent phase fails if you
 - **Curator-only writes** (orchestrator / human). Panel models never write the ledger.
 - **Quality-weighted**, never majority-voted.
 - **Contradictions stay separate and cross-linked**; never silently merge them.
-- **Raw `panel/` outputs are immutable**; cite paths, do not paste transcripts into the ledger. Later modes read `panel/outputs.manifest`, not `panel/README.md` or `prompts/`.
+- **Raw `panel/` outputs are immutable**; cite paths, do not paste transcripts into the ledger. Cross-pollination reads `panel/outputs.manifest`. Synthesis also reads `panel/adversarial/outputs.manifest`. Neither mode reads `panel/README.md` or `prompts/`, and neither globs as a substitute.
 - **Stable IDs**; never reuse; retract/reject/supersede/stale by status, not deletion. **Full schema on every row** regardless of status.
 - **Compact entries** with `review-by`; expired → `stale` and must not drive new decisions.
 - **Append-only change log** for mutations (status transitions preserve history).

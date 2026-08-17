@@ -11,7 +11,7 @@ These are **Council design choices**, motivated by failure modes described in `o
 1. **Curator-only writes.** Panel members never append. If a model said it, it lives in `panel/` until the curator extracts a compact claim.
 2. **Quality-weighted, not majority-voted.** Three models repeating a fluent average does not beat one model with better evidence. Record *why* an entry is strong (evidence, mechanism, falsifiability), not how many seats agreed.
 3. **Contradictions stay separate and cross-linked.** Never silently merge A and B into a mushy consensus. Give each claim its own ID and add a row in [Contradictions](#contradictions).
-4. **Raw outputs are immutable.** Do not edit `panel/*.md` to make the ledger tidier. Cite paths. Cross-pollination and synthesis consume **model outputs listed in `panel/outputs.manifest`**, never `panel/README.md` or files under `prompts/`.
+4. **Raw outputs are immutable.** Do not edit `panel/*.md` to make the ledger tidier. Cite paths. Cross-pollination consumes **model outputs listed in `panel/outputs.manifest`**. Synthesis consumes that manifest **and** `panel/adversarial/outputs.manifest`. Never `panel/README.md`, files under `prompts/`, or raw `cursor-agent.sh` output.
 5. **Stable IDs.** Claims `L-001`, `L-002`, …; contradictions `X-001`, … . Never reuse an ID. Retract, reject, supersede, or mark stale by **status**, not deletion.
 6. **Full schema always.** Every entry keeps the columns below for its entire life, including `rejected`, `stale`, `retracted`, and `superseded`. Do not shrink, move, or rewrite a row into a shorter table when status changes.
 7. **Compact entries.** One claim, one block. Enough for a later reader to act; not a transcript. This is evaporation-by-design: text does not decay on its own.

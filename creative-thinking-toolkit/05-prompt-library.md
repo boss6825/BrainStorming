@@ -175,13 +175,13 @@ would have. Then tell me which lens produced the most surprising usable idea and
   --out-dir council/{slug}/panel
 ```
 
-Launch Codex in the same operator turn when concurrent tools are available; otherwise serialize and say so. Save `panel/codex-<slug>.md` with exact provenance and append it to `panel/outputs.manifest`. `git status` after. Unexpected diffs → stop and restore.
+Launch Codex in the same operator turn when concurrent tools are available; otherwise serialize and say so. Save `panel/codex-<slug>.md` with the documented provenance header (`council/_template/panel/README.md`) and only then append it to `panel/outputs.manifest`. A raw plugin dump is not provenance-complete. `git status` after. Unexpected diffs → stop and restore.
 
-**Phase 3 — Cross-pollinate (orchestrator).** [`07` §5](07-multi-model-panel.md#5-cross-pollination-merge) → `03-cross-pollination.md`. Read **only** files in `panel/outputs.manifest` (not `panel/README.md` or `prompts/`). Blend across files; keep contradictions.
+**Phase 3 — Cross-pollinate (orchestrator).** [`07` §5](07-multi-model-panel.md#5-cross-pollination-merge) → `03-cross-pollination.md`. Read **only** files in `panel/outputs.manifest` (not `panel/README.md`, `prompts/`, or `panel/adversarial/`). If the manifest is missing, stop — do not glob. Blend across files; keep contradictions.
 
-**Phase 4 — Adversarial.** `/codex:adversarial-review` + Cursor devil's advocate ([`07` §6](07-multi-model-panel.md#6-adversarial-pass)), launched together when tools can run concurrently. Read-only; git-status before/after.
+**Phase 4 — Adversarial.** `/codex:adversarial-review` (documented provenance header, then list in `panel/outputs.manifest`) + Cursor devil's advocate via `cursor-panel.sh --seat` into `panel/adversarial/` ([`07` §6](07-multi-model-panel.md#6-adversarial-pass)), launched together when tools can run concurrently. Do not use `cursor-agent.sh` raw output as panel evidence. Read-only; git-status before/after.
 
-**Phase 5 — Converge (judgement ON).** [`07` §7](07-multi-model-panel.md#7-convergence) → `04-synthesis.md` (KILL / PIVOT / VALIDATE + cheapest test). Curator updates `LEDGER.md` ([`07` §8](07-multi-model-panel.md#8-ledger-governance)): quality-weighted, compact, no panel dumps, no majority vote, no automatic cross-session reuse.
+**Phase 5 — Converge (judgement ON).** [`07` §7](07-multi-model-panel.md#7-convergence) → `04-synthesis.md` (KILL / PIVOT / VALIDATE + cheapest test). Consume `panel/outputs.manifest` **and** `panel/adversarial/outputs.manifest`. Curator updates `LEDGER.md` ([`07` §8](07-multi-model-panel.md#8-ledger-governance)): quality-weighted, compact, no panel dumps, no majority vote, no automatic cross-session reuse.
 
 Ask every seat for **conclusions, evidence, assumptions, uncertainty, counterarguments, and a concise rationale** — never hidden chain-of-thought.
 

@@ -63,7 +63,7 @@ Cursor fan-out after **read-only** prompt files exist under `prompts/` (use `--s
 
 Same prompt on every Cursor seat: `--model <id> --model <id> --prompt-file council/<slug>/prompts/shared.md`.
 
-Launch the Codex seat in the **same operator turn** as that fan-out when tools can run concurrently; if they cannot, say so and run them back-to-back. Append Codex filenames to `panel/outputs.manifest`. Cross-pollination reads that manifest only — not `panel/README.md`.
+Launch the Codex seat in the **same operator turn** as that fan-out when tools can run concurrently; if they cannot, say so and run them back-to-back. Save Codex with the documented provenance header, then append its basename to `panel/outputs.manifest` (a raw plugin dump is not provenance-complete). Cross-pollination reads that initial manifest only — not `panel/README.md`, not a glob, not `panel/adversarial/`. Cursor red-team later uses `./scripts/cursor-panel.sh --seat … --out-dir council/<slug>/panel/adversarial` (own manifest). `--resume` skips a seat only when the existing file's `| Model (exact) | \`id\` |` header matches the requested model exactly.
 
 Exact CLI contract (do not "improve" the flags):
 

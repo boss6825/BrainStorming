@@ -22,10 +22,10 @@ Prompts here stay portable: the same text can be pasted into a chat, passed to `
 Keep them separate. Label which one you are in.
 
 1. **Diverge** — Opus (or the orchestrator) writes a wide seed set (`02-divergent-seeds.md`).
-2. **Deep-dive** — each seat researches from its prior (`panel/<label>.md`), in parallel. Cursor seats via `cursor-panel.sh` (`--seat` when personas differ). Launch the Codex seat in the same operator turn when concurrent tools are available; otherwise serialize and say so.
-3. **Cross-pollinate** — blend *across* seats (`03-cross-pollination.md`).
-4. **Adversarial** — Codex adversarial review + a Cursor red-team pass.
-5. **Converge** — score, red-team #1, verdict including KILL (`04-synthesis.md` + curator `LEDGER.md`).
+2. **Deep-dive** — each seat researches from its prior (`panel/<label>.md`), in parallel. Cursor seats via `cursor-panel.sh` (`--seat` when personas differ). Launch the Codex seat in the same operator turn when concurrent tools are available; otherwise serialize and say so. Codex plugin output needs the documented provenance header before it is listed in `panel/outputs.manifest`.
+3. **Cross-pollinate** — blend *across* seats (`03-cross-pollination.md`). Read **only** `panel/outputs.manifest` (the initial panel). Do not glob; do not read `panel/adversarial/` yet.
+4. **Adversarial** — Codex adversarial review + a Cursor red-team pass. Cursor red-team uses `cursor-panel.sh --seat` into `panel/adversarial/` (own `outputs.manifest`). Do not use `cursor-agent.sh` raw output as panel evidence.
+5. **Converge** — score, red-team #1, verdict including KILL (`04-synthesis.md` + curator `LEDGER.md`). Consume `panel/outputs.manifest` **and** `panel/adversarial/outputs.manifest`.
 
 ## 3. Assigning seats
 
@@ -60,6 +60,8 @@ Prompt files live in the session `prompts/` directory, not in `panel/`. Distinct
   --seat {id} council/{slug}/prompts/seat-b.md \
   --out-dir council/{slug}/panel
 ```
+
+`--resume` skips a seat only when the existing file's header has an exact matching `| Model (exact) | \`{id}\` |` line for the requested model. Non-empty files that lack or mismatch that provenance are refused. `outputs.manifest` in `--out-dir` is authoritative (merged, not a destructive rebuild).
 
 **Read-only. Do not modify the repository or any files.** `--force` is an implementation detail of the CLI, not permission to edit.
 
@@ -100,8 +102,9 @@ Cross-pollinate. Judgement is still mostly off: you are combining, not picking
 a winner yet.
 
 Read these panel outputs as separate input spaces (do not average them).
-Use only files listed in panel/outputs.manifest (model outputs).
-Do not read panel/README.md or prompts/:
+Use only files listed in panel/outputs.manifest (initial deep-dive model outputs).
+That manifest is authoritative: if it is missing, stop; do not glob panel/*.md.
+Do not read panel/README.md, prompts/, or panel/adversarial/ (adversarial has its own later manifest):
 {cite panel/<label>.md from the manifest}
 
 Using Fauconnier & Turner conceptual blending AND Koestler bisociation:
@@ -121,7 +124,17 @@ chain-of-thought.
 
 ## 6. Adversarial pass
 
-Codex: `/codex:adversarial-review` on the front-runners (local plugin). Cursor: same contract as §4 (read-only, git-status before/after) with this body. Launch both in one operator turn when concurrent tool execution is available; otherwise run them sequentially and say that they were serialized.
+Codex: `/codex:adversarial-review` on the front-runners (local plugin). Save that output under `panel/` **with the documented Codex provenance header** (`council/_template/panel/README.md`) before listing it in `panel/outputs.manifest`. A raw plugin dump is not provenance-complete.
+
+Cursor: same contract as §4 (read-only, git-status before/after) with the body below, run through `cursor-panel.sh --seat` so the files receive cursor-panel provenance. Use a dedicated directory and its own manifest — do not use `cursor-agent.sh --out` as panel evidence:
+
+```
+./scripts/cursor-panel.sh \
+  --seat {id} council/{slug}/prompts/seat-{label}-adversarial.md \
+  --out-dir council/{slug}/panel/adversarial
+```
+
+Launch both in one operator turn when concurrent tool execution is available; otherwise run them sequentially and say that they were serialized.
 
 ```
 Play devil's advocate on these front-runners: {ideas}.
@@ -142,6 +155,11 @@ Append after blends + adversarial notes (same scorer spirit as [`03` §8](03-com
 
 ```
 Converge. Judgement ON. Do not be encouraging to be nice.
+
+Inputs: blends in 03-cross-pollination.md, initial seats listed in
+panel/outputs.manifest, and Cursor red-team seats listed in
+panel/adversarial/outputs.manifest. If a manifest is missing, say so;
+do not glob. Do not treat cursor-agent.sh raw output as evidence.
 
 Score each developed concept 1-5 on novelty, feasibility, and fit to
 {goal/constraints}. Table it. Recommend the top 3 with the single biggest
@@ -186,3 +204,6 @@ cursor-agent -p "$prompt" --model "$model" --output-format text --force
 - Skip git checks because "the prompt said read-only"
 - Reuse last session's ledger as silent ground truth
 - Converge in the same breath as diverging
+- Treat `cursor-agent.sh` raw `--out` as provenance-complete panel evidence
+- Glob `panel/*.md` instead of reading `outputs.manifest`
+- `--resume` a non-empty seat whose `| Model (exact) |` header is missing or a different id

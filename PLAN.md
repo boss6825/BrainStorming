@@ -36,13 +36,13 @@ You drive these ad-hoc; `/council` orchestrates each and writes to a session fol
 1. **Diverge** — Opus generates a deliberately *wide, diverse* seed set (using the toolkit's anti-clustering levers) → `02-divergent-seeds.md`.
 2. **Deep-dive (the panel)** — each seed/question fans out to multiple models **in parallel** via Cursor + Codex; each model researches from its own priors/persona → `panel/<model>.md`. Launch Codex and Cursor seats in the same operator turn when tool execution supports concurrency. This is the brain-like parallel deepening + the time saver.
 3. **Cross-pollinate** — Opus reads all panel outputs and combines ideas *across* models using Conceptual Blending & Bisociation (toolkit `03`) → `03-cross-pollination.md`. This is the human-style recombination you emphasized.
-4. **Adversarial** — `/codex:adversarial-review` + a Cursor red-team pass pressure-tests the front-runners.
+4. **Adversarial** — `/codex:adversarial-review` + a Cursor red-team pass (`cursor-panel.sh --seat` into `panel/adversarial/`) pressure-tests the front-runners.
 5. **Converge** — Opus scores (novelty × feasibility × fit), red-teams #1, writes an honest verdict (incl. KILL) → `04-synthesis.md`, updates the ledger.
 
 ## What gets created
 
 **Workspace / designated folder**
-- `council/` with `council/README.md` (how it works) and a `_template/` session skeleton: `00-brief.md`, `01-deep-research.md` (Opus seed doc), `02-divergent-seeds.md`, `prompts/` (shared + per-seat prompt files), `panel/` (model outputs + `outputs.manifest`; not README-as-seat), `03-cross-pollination.md`, `04-synthesis.md`, and **`LEDGER.md`** — a *governed* shared trace. (Sessions live at `council/YYYY-MM-DD-slug/`.)
+- `council/` with `council/README.md` (how it works) and a `_template/` session skeleton: `00-brief.md`, `01-deep-research.md` (Opus seed doc), `02-divergent-seeds.md`, `prompts/` (shared + per-seat prompt files), `panel/` (model outputs + `outputs.manifest`; not README-as-seat) plus `panel/adversarial/` (Cursor red-team via `cursor-panel.sh --seat`, own manifest), `03-cross-pollination.md`, `04-synthesis.md`, and **`LEDGER.md`** — a *governed* shared trace. (Sessions live at `council/YYYY-MM-DD-slug/`.)
 - The `LEDGER.md` governance rules are **Council design choices motivated by** `stigmergy_memory_llm_swarms_review.md` (curated, quality-weighted, contradictions flagged not silently merged) so the Memory Curse / collective-false-belief failure modes documented there are harder to stumble into. The review does not prove this exact schema.
 
 **Skills** (`.claude/skills/`)
@@ -52,7 +52,7 @@ You drive these ad-hoc; `/council` orchestrates each and writes to a session fol
 
 **Scripts** (`scripts/`)
 - `cursor-agent.sh` — single-model wrapper: `cursor-agent -p "<prompt>" --model <m> --output-format text --force`, prompt from file/stdin, writes to `--out`.
-- `cursor-panel.sh` — launches requested models **in parallel** (background + `wait`). Repeatable `--model` shares one prompt; repeatable `--seat MODEL PROMPT_FILE` gives per-seat prompts; forms may be combined. Collects each into `panel/<model>.md` and writes `outputs.manifest`.
+- `cursor-panel.sh` — launches requested models **in parallel** (background + `wait`). Repeatable `--model` shares one prompt; repeatable `--seat MODEL PROMPT_FILE` gives per-seat prompts; forms may be combined. Collects each into `panel/<model>.md` with exact provenance and writes `outputs.manifest` as an authoritative merge (prior retainable entries plus this run; Codex artifacts survive; stale/unsafe paths dropped). `--resume` skips only on exact matching `| Model (exact) |` provenance.
 
 **Config**
 - `.claude/settings.json` (checked in) — permission allow-rules for the wrappers plus exact `cursor-agent --list-models` / `--version` and `codex --version`. No unrestricted `cursor-agent:*` or `codex:*` wildcards.

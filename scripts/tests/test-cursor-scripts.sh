@@ -345,6 +345,29 @@ fi
 # cursor-panel.sh
 # ---------------------------------------------------------------------------
 
+write_panel_stub() {
+  _dest=$1
+  _model=$2
+  _label=$3
+  _body=$4
+  cat > "$_dest" <<EOF
+# Panel output — ${_model}
+
+| Field | Value |
+| --- | --- |
+| Model (exact) | \`${_model}\` |
+| Output label | \`${_label}\` |
+| Command | \`cursor-agent -p "\$prompt" --model "${_model}" --output-format text --force\` |
+| Written (UTC) | 2020-01-01T00:00:00Z |
+
+Raw model output follows. This file is immutable session evidence; do not edit in place.
+
+---
+
+${_body}
+EOF
+}
+
 panel_dir="$work/panel"
 mkdir -p "$panel_dir"
 
@@ -426,14 +449,56 @@ else
 fi
 assert_file_contains "panel reports failed model" "$work/mix.err" "fail-me"
 
-# Resume: existing kept, missing created, existing content unchanged
+# Resume: skip only when existing output has exact matching provenance
 resume_dir="$work/panel-resume"
 mkdir -p "$resume_dir"
-printf 'ALREADY\n' >"$resume_dir/keep-me.md"
+"$panel_sh" --model keep-me --out-dir "$resume_dir" --prompt-file "$prompt_file"
+cp "$resume_dir/keep-me.md" "$work/keep-me.resume.bak"
 "$panel_sh" --model keep-me --model also-new --out-dir "$resume_dir" --prompt-file "$prompt_file" --resume
-assert_file_contains "panel resume preserves existing" "$resume_dir/keep-me.md" "ALREADY"
-assert_file_not_contains "panel resume does not rewrite existing" "$resume_dir/keep-me.md" "MOCK_OK"
+if cmp -s "$resume_dir/keep-me.md" "$work/keep-me.resume.bak"; then
+  printf 'PASS  panel resume matching provenance leaves dest unchanged\n'
+  pass=$((pass + 1))
+else
+  printf 'FAIL  panel resume matching provenance rewrote dest\n'
+  fail=$((fail + 1))
+fi
+assert_file_contains "panel resume matching provenance header" "$resume_dir/keep-me.md" "Model (exact) | \`keep-me\`"
 assert_file_contains "panel resume writes missing" "$resume_dir/also-new.md" "MOCK_OK"
+
+# Resume: non-empty without provenance fails safely (no skip, no overwrite, no other launch)
+resume_miss="$work/panel-resume-missing"
+mkdir -p "$resume_miss"
+printf 'NO-PROVENANCE\n' >"$resume_miss/keep-me.md"
+set +e
+"$panel_sh" --model keep-me --model also-new --out-dir "$resume_miss" --prompt-file "$prompt_file" --resume 2>"$work/resume-missing.err"
+st=$?
+set -e
+assert_eq "panel resume missing provenance exit" "$st" "1"
+assert_file_contains "panel resume missing provenance message" "$work/resume-missing.err" "missing exact Model (exact) provenance"
+assert_file_contains "panel resume missing provenance preserves dest" "$resume_miss/keep-me.md" "NO-PROVENANCE"
+assert_file_not_contains "panel resume missing provenance does not wrap dest" "$resume_miss/keep-me.md" "MOCK_OK"
+if [ -e "$resume_miss/also-new.md" ]; then
+  printf 'FAIL  panel resume missing provenance must not launch remaining models\n'
+  fail=$((fail + 1))
+else
+  printf 'PASS  panel resume missing provenance must not launch remaining models\n'
+  pass=$((pass + 1))
+fi
+
+# Resume: normalization-alias mismatch (foo/bar artifact resumed as foo-bar) fails
+resume_alias="$work/panel-resume-alias"
+mkdir -p "$resume_alias"
+write_panel_stub "$resume_alias/foo-bar.md" "foo/bar" "foo-bar" "KEEP-ALIAS"
+set +e
+"$panel_sh" --model foo-bar --out-dir "$resume_alias" --prompt-file "$prompt_file" --resume 2>"$work/resume-alias.err"
+st=$?
+set -e
+assert_eq "panel resume alias mismatch exit" "$st" "1"
+assert_file_contains "panel resume alias mismatch message" "$work/resume-alias.err" "provenance mismatch"
+assert_file_contains "panel resume alias mismatch names file model" "$work/resume-alias.err" "foo/bar"
+assert_file_contains "panel resume alias mismatch names requested" "$work/resume-alias.err" "foo-bar"
+assert_file_contains "panel resume alias mismatch preserves dest" "$resume_alias/foo-bar.md" "KEEP-ALIAS"
+assert_file_not_contains "panel resume alias mismatch does not overwrite" "$resume_alias/foo-bar.md" "MOCK_OK"
 
 # Resume + overwrite refused
 set +e
@@ -514,10 +579,10 @@ else
   fail=$((fail + 1))
 fi
 
-# Resume: empty regular file is rerun/replaced; non-empty skipped
+# Resume: empty regular file is rerun/replaced; matching-provenance non-empty skipped
 resume2="$work/panel-resume2"
 mkdir -p "$resume2"
-printf 'KEEP-RESUME\n' >"$resume2/keep-me.md"
+write_panel_stub "$resume2/keep-me.md" "keep-me" "keep-me" "KEEP-RESUME"
 : >"$resume2/also-new.md"
 "$panel_sh" --model keep-me --model also-new --out-dir "$resume2" --prompt-file "$prompt_file" --resume
 assert_file_contains "panel resume keeps non-empty" "$resume2/keep-me.md" "KEEP-RESUME"
@@ -568,6 +633,106 @@ assert_file_contains "panel writefail names failed model" "$work/writefail.err" 
 assert_file_contains "panel writefail summary counts" "$work/writefail.err" "1 succeeded, 1 failed, 0 skipped"
 assert_file_not_contains "panel writefail dest not in manifest" "$wf_dir/outputs.manifest" "writefail-me.md"
 assert_file_contains "panel writefail success in manifest" "$wf_dir/outputs.manifest" "keep-me.md"
+
+# Manifest merge: Codex + earlier seat survive; duplicates dropped; stale/unsafe not retained
+merge_dir="$work/panel-manifest-merge"
+mkdir -p "$merge_dir"
+"$panel_sh" --model grok --out-dir "$merge_dir" --prompt-file "$prompt_file"
+cat > "$merge_dir/codex-manual.md" <<'EOF'
+# Panel output — Codex (plugin)
+
+| Field | Value |
+| --- | --- |
+| Model (exact) | `codex-local-default` |
+| Output label | `codex-manual` |
+| Command | `/codex:review` |
+| Written (UTC) | 2020-01-01T00:00:00Z |
+
+Raw model output follows. This file is immutable session evidence; do not edit in place.
+
+---
+
+CODEX-BODY
+EOF
+printf 'ESCAPE-BODY\n' >"$work/escape.md"
+mkdir -p "$merge_dir/nested"
+printf 'NESTED-BODY\n' >"$merge_dir/nested/path.md"
+ln -s "$merge_dir/grok.md" "$merge_dir/link-me.md"
+: >"$merge_dir/empty-stale.md"
+cat > "$merge_dir/outputs.manifest" <<'EOF'
+# old comment that must not survive
+grok.md
+grok.md
+codex-manual.md
+gone-stale.md
+../escape.md
+/tmp/abs.md
+README.md
+nested/path.md
+link-me.md
+empty-stale.md
+EOF
+"$panel_sh" --model extra --out-dir "$merge_dir" --prompt-file "$prompt_file"
+assert_file_contains "panel merge keeps earlier seat" "$merge_dir/outputs.manifest" "grok.md"
+assert_file_contains "panel merge keeps Codex entry" "$merge_dir/outputs.manifest" "codex-manual.md"
+assert_file_contains "panel merge lists new seat" "$merge_dir/outputs.manifest" "extra.md"
+grok_n=$(grep -c -Fx -- "grok.md" "$merge_dir/outputs.manifest" || true)
+assert_eq "panel merge grok listed once" "$grok_n" "1"
+codex_n=$(grep -c -Fx -- "codex-manual.md" "$merge_dir/outputs.manifest" || true)
+assert_eq "panel merge Codex listed once" "$codex_n" "1"
+assert_file_contains "panel merge canonical header" "$merge_dir/outputs.manifest" "# cursor-panel.sh outputs.manifest"
+assert_file_not_contains "panel merge drops old comments" "$merge_dir/outputs.manifest" "old comment that must not survive"
+if grep -Fx -- "gone-stale.md" "$merge_dir/outputs.manifest" >/dev/null; then
+  printf 'FAIL  panel merge drops stale missing (unexpected listing)\n'
+  fail=$((fail + 1))
+else
+  printf 'PASS  panel merge drops stale missing\n'
+  pass=$((pass + 1))
+fi
+if grep -Fx -- "../escape.md" "$merge_dir/outputs.manifest" >/dev/null; then
+  printf 'FAIL  panel merge drops traversal (unexpected listing)\n'
+  fail=$((fail + 1))
+else
+  printf 'PASS  panel merge drops traversal\n'
+  pass=$((pass + 1))
+fi
+if grep -Fx -- "/tmp/abs.md" "$merge_dir/outputs.manifest" >/dev/null; then
+  printf 'FAIL  panel merge drops absolute (unexpected listing)\n'
+  fail=$((fail + 1))
+else
+  printf 'PASS  panel merge drops absolute\n'
+  pass=$((pass + 1))
+fi
+if grep -Fx -- "README.md" "$merge_dir/outputs.manifest" >/dev/null; then
+  printf 'FAIL  panel merge drops README (unexpected listing)\n'
+  fail=$((fail + 1))
+else
+  printf 'PASS  panel merge drops README\n'
+  pass=$((pass + 1))
+fi
+if grep -Fx -- "nested/path.md" "$merge_dir/outputs.manifest" >/dev/null; then
+  printf 'FAIL  panel merge drops nested path (unexpected listing)\n'
+  fail=$((fail + 1))
+else
+  printf 'PASS  panel merge drops nested path\n'
+  pass=$((pass + 1))
+fi
+if grep -Fx -- "link-me.md" "$merge_dir/outputs.manifest" >/dev/null; then
+  printf 'FAIL  panel merge drops symlink entry (unexpected listing)\n'
+  fail=$((fail + 1))
+else
+  printf 'PASS  panel merge drops symlink entry\n'
+  pass=$((pass + 1))
+fi
+if grep -Fx -- "empty-stale.md" "$merge_dir/outputs.manifest" >/dev/null; then
+  printf 'FAIL  panel merge drops empty stale (unexpected listing)\n'
+  fail=$((fail + 1))
+else
+  printf 'PASS  panel merge drops empty stale\n'
+  pass=$((pass + 1))
+fi
+assert_file_contains "panel merge earlier seat file intact" "$merge_dir/grok.md" "model=grok"
+assert_file_contains "panel merge Codex file intact" "$merge_dir/codex-manual.md" "CODEX-BODY"
 
 # Malformed panel model id
 set +e

@@ -35,7 +35,8 @@ Copy the whole `_template/` tree; do not start from a blank folder.
 | `00-brief.md` | You + orchestrator | Goal, constraints, already-tried, success test |
 | `01-deep-research.md` | Opus | Seed research (facts, map, uncertainties) |
 | `02-divergent-seeds.md` | Opus | Wide seed set / questions for the panel |
-| `panel/<label>.md` | Cursor/Codex models | **Immutable** raw member output + exact model provenance. List in `outputs.manifest`. Not `README.md`. |
+| `panel/<label>.md` | Cursor/Codex models | **Immutable** raw member output + exact model provenance. Listed in `panel/outputs.manifest`. Not `README.md`. Codex plugin files need the documented header before listing. |
+| `panel/adversarial/` | Cursor red-team via `cursor-panel.sh --seat` | Own `outputs.manifest`. Not raw `cursor-agent.sh` output. |
 | `prompts/` | Orchestrator | Shared + per-seat prompt files (not panel evidence) |
 | `03-cross-pollination.md` | Opus | Blends across models; contradictions kept visible |
 | `04-synthesis.md` | Opus | Scores, red-team, verdict |
@@ -45,7 +46,9 @@ Method prompts live in [`../creative-thinking-toolkit/07-multi-model-panel.md`](
 
 ## Parallelism (the time saver)
 
-`scripts/cursor-panel.sh` fans Cursor seats out concurrently (`--seat` for distinct persona prompts, or `--model` plus one shared `prompts/shared.md`). **Launch the Codex seat in the same operator turn** as that fan-out when the runtime supports concurrent tool calls (`/codex:review` or `/codex:adversarial-review` alongside the panel script). If tools are serialized, say so and run them back-to-back — do not claim overlap that did not happen.
+`scripts/cursor-panel.sh` fans Cursor seats out concurrently (`--seat` for distinct persona prompts, or `--model` plus one shared `prompts/shared.md`). **Launch the Codex seat in the same operator turn** as that fan-out when the runtime supports concurrent tool calls (`/codex:review` or `/codex:adversarial-review` alongside the panel script). If tools are serialized, say so and run them back-to-back — do not claim overlap that did not happen. Codex files need the documented provenance header before they are listed in `panel/outputs.manifest`. Later `cursor-panel.sh` runs merge retainable prior manifest entries (so those Codex artifacts survive) instead of rebuilding the list from the current seats alone.
+
+`--resume` skips a Cursor seat only when the existing file has an exact matching `| Model (exact) | \`id\` |` header for the requested model — not merely because it is non-empty. Cursor red-team (Mode 4) uses `--out-dir council/<slug>/panel/adversarial` with `--seat`. Cross-pollination reads `panel/outputs.manifest` only; synthesis also reads `panel/adversarial/outputs.manifest`.
 
 Discover Cursor model ids with:
 

@@ -32,7 +32,7 @@ Phase 2 should **call the same prompt files**, not invent a second methodology.
 ## Suggested shape (when someone builds it)
 
 1. **Auth** — user-supplied API keys (or a gateway). Never commit keys. Never invent model ids; list from the provider.
-2. **Job runner** — one session = one pipeline run. Persist artifacts after each mode. Resume = skip completed seats (existing non-empty regular outputs; same semantics as `--resume`).
+2. **Job runner** — one session = one pipeline run. Persist artifacts after each mode. Resume = skip completed seats whose existing output has exact matching provenance (same semantics as `--resume`; non-empty alone is not enough).
 3. **Panel workers** — N completions of the toolkit `07` §4 prompt, different system personas, same user body. Record exact `provider/model` provenance on every panel document.
 4. **Curator workers** — modes 1, 3, 5 (and ledger writes) on the orchestrator model. Ledger writes go through a single curator role; panel workers cannot PATCH the ledger.
 5. **Adversarial** — a second-pass completion with the §6 prompt; optional separate provider so it is not the same weights as the front-runner's author.

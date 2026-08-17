@@ -1,6 +1,6 @@
 # Session prompts
 
-Prompt artifacts live **here**, not under `panel/`. `panel/` is for model outputs (plus `README.md` and `outputs.manifest`). Cross-pollination and synthesis must not treat anything in this directory as a seat result.
+Prompt artifacts live **here**, not under `panel/`. `panel/` is for model outputs (plus `README.md` and `outputs.manifest`). Cursor red-team prompt files (`seat-*-adversarial.md`) also live here; their outputs go to `panel/adversarial/` via `cursor-panel.sh --seat`, not to raw `cursor-agent.sh --out`. Cross-pollination and synthesis must not treat anything in this directory as a seat result.
 
 ## Layout
 

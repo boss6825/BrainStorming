@@ -28,7 +28,7 @@ Copy `council/_template/` to `council/{YYYY-MM-DD-slug}/` and fill this in **bef
 |---|---|---|---|---|
 | Cursor 1 | {from `cursor-agent --list-models`} | | `prompts/seat-{label}.md` | |
 | Cursor 2 | | | `prompts/seat-{label}.md` | |
-| Codex | {local default; do not invent an id} | | (plugin turn; save `panel/codex-<slug>.md` and append to `panel/outputs.manifest`) | |
+| Codex | {local default; do not invent an id} | | (plugin turn; save `panel/codex-<slug>.md` **with documented provenance header**, then append to `panel/outputs.manifest`) | |
 
 ## Git baseline (required before `--force` panel)
 

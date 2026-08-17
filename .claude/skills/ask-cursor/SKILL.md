@@ -81,16 +81,18 @@ Shared prompt across seats:
 `--model` and `--seat` may be combined. Only `--model` seats require `--prompt-file` or non-TTY stdin. Each `--seat` prompt file is validated on its own (regular, readable, non-empty). All seats launch concurrently.
 
 - Labels are filesystem-safe forms of the model id. Ids must match the documented grammar (alphanumeric start; then `[A-Za-z0-9._/:@+-]`; no `.` / `..` / empty slash segments; no control/whitespace/markdown metacharacters). Case-insensitive filename collisions are refused before launch.
-- `--resume` skips seats whose output is an existing **non-empty regular** file. Empty regular files are rerun and replaced. Directories, symlinks, and other non-regular types are refused.
+- `--resume` skips a seat only when its output is an existing **non-empty regular** file whose header has an **exact** matching `| Model (exact) | \`id\` |` line for the requested model. Empty regular files are rerun and replaced. A non-empty regular file that lacks that header, or whose exact model id does not match the requested id (including normalization aliases such as `foo/bar` vs `foo-bar`), is refused — not skipped, not overwritten. Directories, symlinks, and other non-regular types are refused.
 - `--overwrite` replaces existing **regular** files only, and only after a successful non-empty child. Cannot combine with `--resume`.
 - With neither flag, existing paths are no-clobber (refused). A file created during the run is not overwritten (hard-link create-if-absent).
 - Child exit status is tracked per model. A nonzero child is never published, even if it wrote a raw file. The process still exits non-zero and names the failures; the summary counts are those statuses.
 - INT/TERM on the panel script TERMs the wrappers; each wrapper kills its CLI process group so descendants do not survive.
-- Each published file records **exact** model provenance (`Model (exact)`). `outputs.manifest` lists seat files only (not `README.md`).
+- Each published file records **exact** model provenance (`| Model (exact) | \`id\` |`). `outputs.manifest` is the authoritative seat list for `--out-dir` (not `README.md`, not a glob). On publication the script writes a canonical comment header, then merges prior retainable entries with this run's published or resume-skipped seats, removes duplicates, and drops traversal/absolute/stale/unsafe paths. Manually recorded Codex artifacts survive later invocations when they are safe relative basenames naming existing non-empty regular non-symlink files in that directory.
+
+`cursor-agent.sh` writes **raw** model text with no panel provenance table. That is fine for a one-off query. Council panel evidence (initial seats and Cursor red-team) must go through `cursor-panel.sh` so the header and that directory's `outputs.manifest` exist. Do not treat a raw `--out` file as provenance-complete.
 
 Do not background `cursor-agent` yourself. Do not use `wait -n`. The panel script is the parallelism mechanism.
 
-Prompts for Council sessions live under `council/<slug>/prompts/`, not in `panel/`.
+Prompts for Council sessions live under `council/<slug>/prompts/`, not in `panel/`. Cursor red-team seats use `--out-dir council/<slug>/panel/adversarial` (its own manifest), not the main panel directory.
 
 ## What to put in the prompt file
 
