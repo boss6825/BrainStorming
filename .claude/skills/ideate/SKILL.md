@@ -36,8 +36,11 @@ Figure out which of these the user actually needs (ask only if genuinely ambiguo
 | Understand a domain & find the opportunity | **Recipe 3 — Research-a-Space** | [`05` Part B](../../../creative-thinking-toolkit/05-prompt-library.md) |
 | Break a plateau / get unstuck | **Recipe 4 — Deep-Tunnel Lens Sweep**, or a single greatest-hit | [`05`](../../../creative-thinking-toolkit/05-prompt-library.md) |
 | Combine two specific things | Conceptual Blending / Bisociation | [`03`](../../../creative-thinking-toolkit/03-combinatorial-creativity.md) |
+| Run independent heterogeneous models that disagree, research in parallel, and cross-pollinate | **Recipe 5 — Council Multi-Model Run**; dispatch to `/council` | [`05` Recipe 5](../../../creative-thinking-toolkit/05-prompt-library.md), [`07`](../../../creative-thinking-toolkit/07-multi-model-panel.md) |
 
 If they just say "brainstorm X" with no other signal, default to **Recipe 1**.
+
+**Council dispatch.** When the user explicitly wants multiple real models, a panel, Council, Codex + Cursor disagreement, or parallel model research, dispatch to `/council`. Do not simulate the missing models inside `/ideate`. If execution is in cloud/web mode, explain that Council requires local Claude Code and offer the ordinary single-model `/ideate` workflow only as a clearly labeled alternative. Full prompts and lifecycle live in [`07`](../../../creative-thinking-toolkit/07-multi-model-panel.md) — do not copy them into this skill.
 
 ## Step 2 — Gather the minimum context, then commit
 
@@ -45,7 +48,7 @@ Before diverging, get three things (from the conversation or by asking briefly):
 
 ## Step 3 — Run the session
 
-Follow the chosen recipe's phases from [`05-prompt-library.md`](../../../creative-thinking-toolkit/05-prompt-library.md), applying the technique templates from [`01`](../../../creative-thinking-toolkit/01-creativity-frameworks.md)–[`04`](../../../creative-thinking-toolkit/04-llm-divergence-techniques.md). You are running these *on yourself* — you don't have to make the user paste prompts. But keep the phase boundaries visible with headers ("**Diverging — judgement off**", "**Converging — cold evaluation**") so the user follows the logic.
+Follow the chosen recipe's phases from [`05-prompt-library.md`](../../../creative-thinking-toolkit/05-prompt-library.md), applying the technique templates from [`01`](../../../creative-thinking-toolkit/01-creativity-frameworks.md)–[`04`](../../../creative-thinking-toolkit/04-llm-divergence-techniques.md) (and [`07`](../../../creative-thinking-toolkit/07-multi-model-panel.md) when Recipe 5 / Council is in play). You are running these *on yourself* — you don't have to make the user paste prompts. But keep the phase boundaries visible with headers ("**Diverging — judgement off**", "**Converging — cold evaluation**") so the user follows the logic.
 
 Pick techniques by fit, not by habit:
 - **Divergent generators:** Idea Cascade, Random Provocation, SCAMPER, Forced Connections, Conceptual Blending, "Combine two unrelated things", Quantity-forcing with a no-repeat rule. ([01](../../../creative-thinking-toolkit/01-creativity-frameworks.md), [02](../../../creative-thinking-toolkit/02-neurodivergent-thinking-modes.md), [03](../../../creative-thinking-toolkit/03-combinatorial-creativity.md), [04](../../../creative-thinking-toolkit/04-llm-divergence-techniques.md))

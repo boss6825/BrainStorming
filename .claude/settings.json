@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(scripts/cursor-agent.sh *)",
+      "Bash(scripts/cursor-panel.sh *)",
+      "Bash(cursor-agent *)",
+      "Bash(codex *)"
+    ]
+  }
+}
