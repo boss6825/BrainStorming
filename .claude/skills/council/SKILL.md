@@ -105,7 +105,7 @@ That writes `panel/adversarial/outputs.manifest`. Keep the main `panel/outputs.m
 
 ## Mode 5 — Converge (Opus)
 
-Write `04-synthesis.md`: score novelty × feasibility × fit, red-team #1, verdict **KILL / PIVOT / VALIDATE**. Consume blends plus **initial** model outputs in `panel/outputs.manifest` **and** Cursor red-team outputs in `panel/adversarial/outputs.manifest` (not `panel/README.md`, not prompts, not raw `cursor-agent.sh` files). If the adversarial manifest is missing, say so and do not glob. Then update `LEDGER.md` as curator: compact claims with the **full entry schema** at every status (`active` / `contested` / `stale` / `retracted` / `rejected` / `superseded`), quality notes, `review-by`, contradictions, append-only change log for every transition. Never copy panel bodies into the ledger. Never reuse this ledger automatically in a later session.
+Write `04-synthesis.md`: score novelty × feasibility × fit, red-team #1, verdict **KILL / PIVOT / VALIDATE**. Consume blends plus **initial** model outputs in `panel/outputs.manifest` **and** Cursor/Codex red-team outputs in `panel/adversarial/outputs.manifest` (not `panel/README.md`, not prompts, not raw `cursor-agent.sh` files). If the adversarial manifest is missing, say so and do not glob. Then update `LEDGER.md` as curator: compact claims with the **full entry schema** at every status (`active` / `contested` / `stale` / `retracted` / `rejected` / `superseded`), quality notes, `review-by`, contradictions, append-only change log for every transition. Never copy panel bodies into the ledger. Never reuse this ledger automatically in a later session.
 
 ## Routing vs `/ideate`
 

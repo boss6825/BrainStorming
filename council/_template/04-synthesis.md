@@ -4,7 +4,7 @@
 
 Score honestly on novelty × feasibility × fit to the brief. Red-team the front-runner. Do not soften to be nice. Do not request hidden chain-of-thought: conclusions, evidence, assumptions, uncertainty, counterarguments, concise rationale.
 
-Inputs: the blends in `03-cross-pollination.md` plus **initial** model outputs listed in `panel/outputs.manifest` **and** Cursor red-team outputs listed in `panel/adversarial/outputs.manifest`. Do not treat `panel/README.md`, `prompts/`, or raw `cursor-agent.sh` output as seat evidence. If a manifest is missing, say so — do not glob.
+Inputs: the blends in `03-cross-pollination.md` plus **initial** model outputs listed in `panel/outputs.manifest` **and** Cursor/Codex red-team outputs listed in `panel/adversarial/outputs.manifest`. Do not treat `panel/README.md`, `prompts/`, or raw `cursor-agent.sh` output as seat evidence. If a manifest is missing, say so — do not glob.
 
 ## Scorecard
 
@@ -23,7 +23,7 @@ Idea: {#1}
 
 ## Codex / Cursor adversarial notes
 
-- Codex: {path of `/codex:adversarial-review` **with** documented provenance, listed in `panel/outputs.manifest`}
+- Codex: {path of `/codex:adversarial-review` **with** documented provenance, listed in `panel/adversarial/outputs.manifest`}
 - Cursor red-team: {paths from `panel/adversarial/outputs.manifest`}
 
 ## Verdict
