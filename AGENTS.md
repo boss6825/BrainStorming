@@ -50,6 +50,8 @@ used together as a "panel of experts" that research, disagree, and cross-pollina
 | `creative-thinking-toolkit/06-sources.md` | ✅ | Citations/evidence base for the above | Checking evidence behind a technique |
 | `creative-thinking-toolkit/07-multi-model-panel.md` | ✅ | Council method: roles, independent deep-dive / blend / adversarial / converge prompts, ledger rules | Filling Council prompts; do not duplicate this in skills |
 | `docs/ROADMAP-api-mode.md` | ✅ design doc; Phase 2 code absent | Phase-2 API-key productization design | Designing automation later — do not implement from this file yet |
+| `.github/PULL_REQUEST_TEMPLATE.md` | ✅ | PR form GitHub pre-fills: change type, this repo's gates, named verification commands | Opening a pull request |
+| `docs/how-to-write-a-pr-template.md` | ✅ | How to derive a project-specific PR template from rules and failure modes | Designing or revising a template (this repo or another) |
 | `path-forward/00-START-HERE.md` + `01`–`08` | ✅ | Personal decision/validation framework (assumptions, 90-day plan, one-week validation, idea bank, job strategy, co-founders, ADHD mechanics) | Constraints, validation approach, or idea-bank formatting for a real decision |
 | `old research on startup ideas/startup_ideas_braindump.md` | ✅ | Prior startup ideas with signal/verdict/status format | Idea-doc formatting convention; checking if an idea was already explored |
 | `old research on startup ideas/grants_and_fellowships_guide.md` | ✅ | Grants/fellowships research | Funding-related research |

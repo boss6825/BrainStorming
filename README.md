@@ -196,5 +196,7 @@ Cloud/web can edit files. It cannot execute the Codex plugin or local Cursor CLI
 | [`path-forward/`](path-forward/) | Personal constraints, 90-day plan, validation, idea bank, job/cofounder/ADHD notes |
 | [`old research on startup ideas/`](old%20research%20on%20startup%20ideas/) | Prior idea dump, grants/fellowships, stigmergy/memory review that **motivates** ledger rules |
 | [`docs/ROADMAP-api-mode.md`](docs/ROADMAP-api-mode.md) | Phase 2 API-mode design only — not implemented |
+| [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) | PR form GitHub pre-fills with this repo's review gates |
+| [`docs/how-to-write-a-pr-template.md`](docs/how-to-write-a-pr-template.md) | How to derive a project-specific PR template |
 | [`.claude/settings.json`](.claude/settings.json) | Wrapper + exact CLI allow-rules |
 | [`.codex/config.toml`](.codex/config.toml) | Codex reasoning effort only |
