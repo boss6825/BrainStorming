@@ -2,16 +2,18 @@
 name: council-setup
 description: >-
   Check whether the local machine is ready to run Council by verifying the
-  cursor-agent and codex executables, Cursor model discovery/authentication, and
-  availability of the Codex plugin skills. Reports exact remediation without
-  pretending Claude Code cloud can execute the panel.
+  cursor-agent and codex executables, Cursor model discovery/authentication,
+  availability of the Codex plugin skills, and that this repo's Cursor wrappers
+  are executable. Reports exact remediation without pretending Claude Code cloud
+  can execute the panel.
 ---
 
 # Council setup
 
 Preflight checker for local Council sessions. Run this before `/council` does any
 external Cursor or Codex work. Report facts and remediation — do not start
-interactive login automatically, and do not claim readiness in cloud/web.
+interactive login automatically, do not invent install/login flags, and do not
+claim readiness in cloud/web.
 
 ## Environment boundary
 
@@ -43,6 +45,7 @@ Behavior:
 4. If `--list-models` fails (or returns empty): report **installed but not
    authenticated/usable**. Point the operator to Cursor Agent's **official sign-in**
    flow. Do **not** invent a `cursor-agent login` command.
+5. **Never invent a model id** to skip discovery.
 
 ## Codex checks
 
@@ -56,11 +59,14 @@ Behavior:
 
 1. `command -v codex` failure → **missing**. Action: install the Codex CLI.
 2. `--version` ≠ authenticated.
-3. Run `codex login status`.
+3. Run `codex login status` if the local CLI supports it.
 4. If unauthenticated → instruct `codex login` (do not run it for them).
 5. If `login status` is unsupported/unknown → report
    `installed; authentication unverified` (not missing). Instruct `codex login`
    or the plugin's `/codex:setup`.
+6. Plugin-only users may still have `/codex:review` in local Claude Code without
+   a global `codex` — say so if `command -v` fails but the user confirms the
+   plugin works.
 
 ## Plugin checks
 
@@ -74,6 +80,21 @@ do not invent flags):
 If any are missing, say so and point to Codex plugin install / `/codex:setup`.
 Do not invent CLI substitutes for those skills.
 
+## Repo wrappers and config
+
+Run in the repo root. Quote paths. Do not `eval`.
+
+```bash
+test -x scripts/cursor-agent.sh && test -x scripts/cursor-panel.sh
+bash -n scripts/cursor-agent.sh && bash -n scripts/cursor-panel.sh
+test -f .codex/config.toml && test -f .claude/settings.json
+```
+
+If `scripts/cursor-common.sh` exists, also run `bash -n scripts/cursor-common.sh`.
+Report missing or non-executable wrappers and missing config files. Do not
+invent permission-allow syntax or a Codex model pin here; those files still
+need a human merge if they conflict.
+
 ## Report
 
 Print a compact table and stop:
@@ -85,7 +106,11 @@ Print a compact table and stop:
 | `/codex:review` | yes/no | n/a | … |
 | `/codex:adversarial-review` | yes/no | n/a | … |
 | `/codex:rescue` | yes/no | n/a | … |
+| repo wrappers | yes/no | n/a | … |
 
 Ready for `/council` only when Cursor discovery works, Codex is authenticated (or
-explicitly verified via plugin setup), and all three plugin skills are present —
-and only on a **local** host.
+explicitly verified via plugin setup), the three plugin skills are present, and
+the repo wrappers exist — and only on a **local** host.
+
+Remind the operator: Council panel prompts must stay read-only, and `--force`
+requires `git status` before and after.

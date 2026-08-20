@@ -1,325 +1,601 @@
 #!/usr/bin/env bash
-# Fan one prompt to requested Cursor models concurrently.
+# Parallel fan-out wrapper: Cursor models via cursor-agent.sh.
+# Syntax is designed for macOS Bash 3.2. Verification uses the installed Bash;
+# this is not a claim that Bash 3.2 was runtime-tested here.
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage:
-  scripts/cursor-panel.sh --out-dir DIR --model MODEL [--model MODEL ...] \
-    --prompt-file FILE
-  scripts/cursor-panel.sh --out-dir DIR --model MODEL [--model MODEL ...] \
-    < prompt.txt
+Usage: cursor-panel.sh [--model <id> ...] [--seat <id> <prompt-file> ...]
+                       --out-dir <dir> [--prompt-file <path>] [--resume | --overwrite]
+
+Run one or more Cursor models in parallel. Shared --model seats use one prompt
+(--prompt-file or stdin). Repeatable --seat pairs give each seat its own prompt
+file. The two forms may be combined. All seats launch concurrently.
 
 Options:
-  --out-dir DIR       Destination panel directory.
-  --model MODEL       Repeat once per exact model ID.
-  --prompt-file FILE  Shared base prompt; otherwise read stdin.
-  -h, --help          Print usage.
+  --model <id>           Shared-prompt seat (repeatable)
+  --seat <id> <file>     Per-seat prompt file (repeatable)
+  --out-dir <dir>        Directory for per-model markdown outputs (required)
+  --prompt-file <path>   Shared prompt for --model seats (otherwise stdin)
+  --resume               Skip a seat only when its output is an existing
+                         non-empty regular file whose header has an exact
+                         matching | Model (exact) | `MODEL` | line for the
+                         requested model. Empty regular files are rerun.
+                         A non-empty regular file with missing or mismatched
+                         provenance is refused (not skipped, not overwritten).
+  --overwrite            Replace existing per-model regular output files
+  -h, --help             Show this help
+
+--resume and --overwrite are mutually exclusive. With neither, existing
+paths are refused (no-clobber). Directories, symlinks, and other non-regular
+existing types are always refused.
+
+Shared --model seats require a non-empty --prompt-file or non-TTY stdin.
+--seat prompt files are validated independently and do not require a shared
+prompt. Combining --model and --seat is allowed.
+
+Model ids:
+  Conservative grammar: ASCII alphanumeric start, then [A-Za-z0-9._/:@+-],
+  with no empty or "." / ".." slash segments. Control, whitespace, and
+  markdown metacharacters outside that allow-list are rejected. Labels are
+  filesystem-safe forms of the id; case-insensitive collisions are refused.
+
+Each published file records exact model provenance. A nonzero child is never
+published, even if it wrote a raw file. INT/TERM terminates wrappers so they
+kill their CLI process groups; descendants must not survive.
+
+outputs.manifest in --out-dir is the authoritative seat list (not a glob).
+On publication it is rewritten with a canonical comment header, then the merge
+of prior retainable entries and this run's published or resume-skipped seats.
+Duplicates are removed. An existing entry is kept only when it is a safe
+relative basename naming an existing non-empty regular non-symlink artifact
+under --out-dir. Traversal, absolute paths, README.md, and stale or unsafe
+paths are dropped. Manually recorded Codex artifacts that meet those rules
+survive later invocations. Documentation files are not listed.
 
 Environment:
-  CURSOR_AGENT_WRAPPER  Wrapper path; defaults to cursor-agent.sh beside this script.
-  CURSOR_AGENT_BIN      Inherited by each wrapper; defaults there to cursor-agent.
+  CURSOR_AGENT_BIN       Passed through to cursor-agent.sh
+  CURSOR_PANEL_AGENT     Override path to cursor-agent.sh
+                         (default: sibling of this script)
+
+--force is used by cursor-agent.sh and can edit the working tree. Council
+prompts must tell models to stay read-only; git-status before and after.
 EOF
 }
 
-SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-CURSOR_AGENT_WRAPPER="${CURSOR_AGENT_WRAPPER:-${SCRIPT_DIR}/cursor-agent.sh}"
+die() {
+  printf '%s\n' "cursor-panel.sh: $*" >&2
+  exit 1
+}
 
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck source=cursor-common.sh
+. "$script_dir/cursor-common.sh"
+
+normalize_label() {
+  printf '%s' "$1" | sed -e 's/[^A-Za-z0-9._-]/-/g' -e 's/--*/-/g' -e 's/^-//' -e 's/-$//'
+}
+
+to_lower() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+write_provenance() {
+  # $1 dest, $2 model, $3 label, $4 raw file, $5 publish mode
+  local _dest _model _label _raw _mode _dest_tmp _utc _pub
+  _dest=$1
+  _model=$2
+  _label=$3
+  _raw=$4
+  _mode=$5
+  _dest_tmp=$(mktemp "${_dest}.XXXXXX") || return 1
+  _utc=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  {
+    cat <<EOF
+# Panel output — ${_model}
+
+| Field | Value |
+| --- | --- |
+| Model (exact) | \`${_model}\` |
+| Output label | \`${_label}\` |
+| Command | \`cursor-agent -p "\$prompt" --model "${_model}" --output-format text --force\` |
+| Written (UTC) | ${_utc} |
+
+Raw model output follows. This file is immutable session evidence; do not edit in place.
+
+---
+
+EOF
+    cat -- "$_raw"
+  } >"$_dest_tmp" || {
+    rm -f -- "$_dest_tmp"
+    return 1
+  }
+  if [ ! -s "$_dest_tmp" ]; then
+    rm -f -- "$_dest_tmp"
+    return 1
+  fi
+  cursor_publish "$_dest_tmp" "$_dest" "$_mode" || {
+    _pub=$?
+    rm -f -- "$_dest_tmp"
+    return "$_pub"
+  }
+}
+
+# Print the first header `| Model (exact) | `MODEL` |` value, stopping at ---.
+# 0 if a well-formed row was found, 1 otherwise.
+cursor_panel_header_exact_model() {
+  _file=$1
+  _prefix='| Model (exact) | `'
+  _suffix='` |'
+  while IFS= read -r _line || [ -n "${_line:-}" ]; do
+    _line=$(printf '%s' "$_line" | tr -d '\r')
+    if [ "$_line" = "---" ]; then
+      break
+    fi
+    case "$_line" in
+      "${_prefix}"*"${_suffix}")
+        _mid=${_line#"$_prefix"}
+        _mid=${_mid%"$_suffix"}
+        printf '%s\n' "$_mid"
+        return 0
+        ;;
+    esac
+  done < "$_file"
+  return 1
+}
+
+cursor_panel_provenance_matches() {
+  _file=$1
+  _model=$2
+  _got=$(cursor_panel_header_exact_model "$_file") || _got=""
+  [ -n "$_got" ] && [ "$_got" = "$_model" ]
+}
+
+cursor_panel_resume_refuse_provenance() {
+  # $1 dest, $2 requested model — never skip or overwrite
+  _dest=$1
+  _model=$2
+  _got=$(cursor_panel_header_exact_model "$_dest") || _got=""
+  if [ -z "$_got" ]; then
+    die "resume refused: $_dest is non-empty but missing exact Model (exact) provenance for '$_model'"
+  fi
+  die "resume refused: $_dest provenance mismatch (file has '$_got', requested '$_model')"
+}
+
+# Retain a prior outputs.manifest line only when it is a safe relative basename
+# naming an existing non-empty regular non-symlink artifact under $2.
+cursor_manifest_entry_retainable() {
+  _e=$1
+  _dir=$2
+  _re='^[A-Za-z0-9][A-Za-z0-9._-]*\.md$'
+  if ! [[ "$_e" =~ $_re ]]; then
+    return 1
+  fi
+  _low=$(printf '%s' "$_e" | tr '[:upper:]' '[:lower:]')
+  if [ "$_low" = "readme.md" ]; then
+    return 1
+  fi
+  case "$_e" in
+    */*|*\\*|/*) return 1 ;;
+  esac
+  _path="${_dir}/${_e}"
+  if [ -L "$_path" ]; then
+    return 1
+  fi
+  if [ -f "$_path" ] && [ -s "$_path" ]; then
+    return 0
+  fi
+  return 1
+}
+
+models=()
+seat_prompts=()
 out_dir=""
 prompt_file=""
-out_dir_set=0
-prompt_file_set=0
-models=()
+resume=0
+overwrite=0
 
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
   case "$1" in
+    --model)
+      [ $# -ge 2 ] || die "--model requires a value"
+      models+=("$2")
+      seat_prompts+=("")
+      shift 2
+      ;;
+    --model=*)
+      models+=("${1#--model=}")
+      seat_prompts+=("")
+      shift
+      ;;
+    --seat)
+      [ $# -ge 3 ] || die "--seat requires a model id and a prompt file"
+      models+=("$2")
+      seat_prompts+=("$3")
+      shift 3
+      ;;
+    --out-dir)
+      [ $# -ge 2 ] || die "--out-dir requires a value"
+      out_dir=$2
+      shift 2
+      ;;
+    --out-dir=*)
+      out_dir=${1#--out-dir=}
+      shift
+      ;;
+    --prompt-file)
+      [ $# -ge 2 ] || die "--prompt-file requires a value"
+      prompt_file=$2
+      shift 2
+      ;;
+    --prompt-file=*)
+      prompt_file=${1#--prompt-file=}
+      shift
+      ;;
+    --resume)
+      resume=1
+      shift
+      ;;
+    --overwrite)
+      overwrite=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
       ;;
-    --out-dir)
-      if [[ "$out_dir_set" -eq 1 ]]; then
-        echo "error: --out-dir specified more than once" >&2
-        exit 2
-      fi
-      if [[ $# -lt 2 || -z "${2:-}" || "${2:-}" == -* ]]; then
-        echo "error: --out-dir requires a DIR argument" >&2
-        exit 2
-      fi
-      out_dir="$2"
-      out_dir_set=1
-      shift 2
+    --)
+      shift
+      break
       ;;
-    --model)
-      if [[ $# -lt 2 || -z "${2:-}" || "${2:-}" == -* ]]; then
-        echo "error: --model requires a MODEL argument" >&2
-        exit 2
-      fi
-      models+=("$2")
-      shift 2
-      ;;
-    --prompt-file)
-      if [[ "$prompt_file_set" -eq 1 ]]; then
-        echo "error: --prompt-file specified more than once" >&2
-        exit 2
-      fi
-      if [[ $# -lt 2 || -z "${2:-}" || "${2:-}" == -* ]]; then
-        echo "error: --prompt-file requires a FILE argument" >&2
-        exit 2
-      fi
-      prompt_file="$2"
-      prompt_file_set=1
-      shift 2
+    -*)
+      die "unknown option: $1"
       ;;
     *)
-      echo "error: unknown flag: $1" >&2
-      exit 2
+      die "unexpected argument: $1"
       ;;
   esac
 done
 
-if [[ "$out_dir_set" -eq 0 ]]; then
-  echo "error: --out-dir is required" >&2
-  exit 2
-fi
+[ $# -eq 0 ] || die "unexpected argument: $1"
+[ "${#models[@]}" -gt 0 ] || die "at least one --model or --seat is required"
+[ -n "$out_dir" ] || die "--out-dir is required"
+[ "$resume" -eq 0 ] || [ "$overwrite" -eq 0 ] || die "--resume and --overwrite cannot be used together"
 
-if [[ "${#models[@]}" -eq 0 ]]; then
-  echo "error: at least one --model is required" >&2
-  exit 2
-fi
+agent_sh=${CURSOR_PANEL_AGENT:-"$script_dir/cursor-agent.sh"}
+[ -f "$agent_sh" ] || die "cursor-agent.sh not found: $agent_sh"
+[ -x "$agent_sh" ] || die "cursor-agent.sh is not executable: $agent_sh"
 
-# Preserve trailing newlines (command substitution strips them).
-read_prompt() {
-  local content
-  content=$(cat -- "$@"; printf x) || return 1
-  printf '%s' "${content%x}"
-}
-
-if [[ "$prompt_file_set" -eq 1 ]]; then
-  if [[ ! -r "$prompt_file" ]]; then
-    echo "error: prompt file missing or unreadable: $prompt_file" >&2
-    exit 3
+need_shared=0
+i=0
+while [ "$i" -lt "${#models[@]}" ]; do
+  if [ -z "${seat_prompts[$i]}" ]; then
+    need_shared=1
   fi
-  if ! shared_prompt="$(read_prompt "$prompt_file")"; then
-    echo "error: failed to read prompt file: $prompt_file" >&2
-    exit 3
-  fi
-else
-  if [[ -t 0 ]]; then
-    echo "error: no --prompt-file and stdin is a TTY; pipe a prompt or pass --prompt-file" >&2
-    exit 2
-  fi
-  if ! shared_prompt="$(read_prompt)"; then
-    echo "error: failed to read prompt from stdin" >&2
-    exit 3
-  fi
-fi
-
-if [[ -z "${shared_prompt//[[:space:]]/}" ]]; then
-  echo "error: prompt is empty or whitespace-only" >&2
-  exit 3
-fi
-
-if [[ ! -e "$CURSOR_AGENT_WRAPPER" || ! -x "$CURSOR_AGENT_WRAPPER" ]]; then
-  echo "error: CURSOR_AGENT_WRAPPER unavailable: $CURSOR_AGENT_WRAPPER" >&2
-  exit 4
-fi
-
-sanitize_model_filename() {
-  local id="$1"
-  local s
-
-  s="$(printf '%s' "$id" | tr '[:upper:]' '[:lower:]')"
-  s="${s//\//-}"
-  s="${s//\\/-}"
-  s="$(printf '%s' "$s" | sed -E 's/[^a-z0-9._-]+/-/g; s/-{2,}/-/g; s/^[.-]+//; s/[.-]+$//')"
-
-  if [[ -z "$s" ]]; then
-    return 1
-  fi
-  printf '%s.md' "$s"
-}
-
-sanitized_names=()
-output_paths=()
-
-for model in "${models[@]}"; do
-  if ! sane="$(sanitize_model_filename "$model")"; then
-    echo "error: model ID sanitizes to an empty filename: $model" >&2
-    exit 5
-  fi
-  if [[ "${#sanitized_names[@]}" -gt 0 ]]; then
-    for existing in "${sanitized_names[@]}"; do
-      if [[ "$existing" == "$sane" ]]; then
-        echo "error: sanitized filename collision for model '$model' → $sane" >&2
-        exit 5
-      fi
-    done
-  fi
-  sanitized_names+=("$sane")
-  output_paths+=("${out_dir}/${sane}")
+  i=$((i + 1))
 done
 
-if ! mkdir -p -- "$out_dir"; then
-  echo "error: failed to create output directory: $out_dir" >&2
-  exit 5
-fi
-
-write_envelope_prompt() {
-  local dest="$1"
-  local model_id="$2"
-  {
-    printf '%s\n' "COUNCIL RUNTIME ENVELOPE"
-    printf '\n'
-    printf '%s\n' "Runtime Cursor model ID: ${model_id}"
-    printf '%s\n' "Follow the role and cognitive-style-inspired lens assigned to this exact ID in"
-    printf '%s\n' "the prompt below. You are an independent panel member. Write the final answer"
-    printf '%s\n' "to stdout only. Do not edit the repository. Do not refer to unseen panel members."
-    printf '\n'
-    printf '%s\n' "---"
-    printf '%s' "$shared_prompt"
-  } >"$dest"
-}
-
-write_marker_file() {
-  local dest="$1"
-  local model_id="$2"
-  local wrapper_exit="$3"
-  local agent_exit="$4"
-  local reason="$5"
-  local stderr_body="${6:-}"
-  local tmp
-
-  tmp="$(mktemp "${out_dir}/.cursor-panel-marker.XXXXXX")" || return 1
-  {
-    printf '%s\n' "# Cursor panel response failed"
-    printf '\n'
-    printf '%s\n' "- Model: \`${model_id}\`"
-    printf '%s\n' "- Wrapper exit: \`${wrapper_exit}\`"
-    printf '%s\n' "- Cursor Agent exit: \`${agent_exit}\`"
-    printf '%s\n' "- Reason: \`${reason}\`"
-    printf '\n'
-    printf '%s\n' "## stderr"
-    printf '\n'
-    printf '%s\n' '```text'
-    printf '%s' "$stderr_body"
-    if [[ -n "$stderr_body" && "${stderr_body: -1}" != $'\n' ]]; then
-      printf '\n'
+labels=()
+lowers=()
+i=0
+while [ "$i" -lt "${#models[@]}" ]; do
+  m=${models[$i]}
+  [ -n "$m" ] || die "model id must not be empty"
+  cursor_model_id_ok "$m" || die "invalid model id: $m"
+  label=$(normalize_label "$m")
+  [ -n "$label" ] || die "model id normalizes to an empty filename: $m"
+  lower=$(to_lower "$label")
+  j=0
+  while [ "$j" -lt "${#lowers[@]}" ]; do
+    if [ "$lower" = "${lowers[$j]}" ]; then
+      die "normalization collision: '$m' and '${models[$j]}' both map to '${labels[$j]}'"
     fi
-    printf '%s\n' '```'
-  } >"$tmp" || {
-    rm -f -- "$tmp"
-    return 1
-  }
-  mv -f -- "$tmp" "$dest"
-}
+    j=$((j + 1))
+  done
+  labels+=("$label")
+  lowers+=("$lower")
+  i=$((i + 1))
+done
 
-interrupted=0
-pids=()
-prompt_tmps=()
-
-cleanup_prompt_tmps() {
-  local f
-  if [[ "${#prompt_tmps[@]}" -gt 0 ]]; then
-    for f in "${prompt_tmps[@]}"; do
-      rm -f -- "$f"
-    done
+i=0
+while [ "$i" -lt "${#models[@]}" ]; do
+  sp=${seat_prompts[$i]}
+  if [ -n "$sp" ]; then
+    [ -f "$sp" ] && [ ! -L "$sp" ] || die "seat prompt is not a regular file: $sp"
+    [ -r "$sp" ] || die "seat prompt not readable: $sp"
+    [ -s "$sp" ] || die "seat prompt is empty: $sp"
   fi
-}
-trap cleanup_prompt_tmps EXIT
+  i=$((i + 1))
+done
 
-kill_pid_tree() {
-  local pid="$1"
-  local child
-  # Recursively terminate descendants, then the worker itself.
-  while read -r child; do
-    [[ -n "$child" ]] || continue
-    kill_pid_tree "$child"
-  done < <(pgrep -P "$pid" 2>/dev/null || true)
-  kill -TERM "$pid" 2>/dev/null || true
+mkdir -p -- "$out_dir"
+
+# Pre-check destinations before launching anyone.
+i=0
+while [ "$i" -lt "${#labels[@]}" ]; do
+  dest="$out_dir/${labels[$i]}.md"
+  m=${models[$i]}
+  kind=$(cursor_dest_kind "$dest")
+  case "$kind" in
+    missing)
+      ;;
+    regular)
+      if [ "$resume" -eq 1 ]; then
+        if cursor_is_complete_regular "$dest"; then
+          if ! cursor_panel_provenance_matches "$dest" "$m"; then
+            cursor_panel_resume_refuse_provenance "$dest" "$m"
+          fi
+        fi
+      elif [ "$overwrite" -eq 1 ]; then
+        :
+      else
+        die "refusing to clobber existing file (pass --overwrite or --resume): $dest"
+      fi
+      ;;
+    directory)
+      die "refusing destination that is a directory: $dest"
+      ;;
+    symlink)
+      die "refusing destination that is a symlink: $dest"
+      ;;
+    *)
+      die "refusing destination that is not a regular file: $dest"
+      ;;
+  esac
+  i=$((i + 1))
+done
+
+work=""
+child_pids=""
+interrupted=0
+
+cleanup() {
+  if [ -n "${child_pids:-}" ]; then
+    for pid in $child_pids; do
+      kill -TERM "$pid" >/dev/null 2>&1 || true
+    done
+    for pid in $child_pids; do
+      wait "$pid" >/dev/null 2>&1 || true
+    done
+    child_pids=""
+  fi
+  if [ -n "${work:-}" ] && [ -d "$work" ]; then
+    rm -rf -- "$work"
+    work=""
+  fi
 }
 
 on_signal() {
   interrupted=1
-  local pid
-  if [[ "${#pids[@]}" -gt 0 ]]; then
-    for pid in "${pids[@]}"; do
-      kill_pid_tree "$pid"
-    done
-  fi
+  cleanup
+  exit 130
 }
+
+trap cleanup EXIT
 trap on_signal INT TERM
 
-# Launch all workers before awaiting any.
-i=0
-for model in "${models[@]}"; do
-  out_path="${output_paths[$i]}"
-  prompt_tmp="$(mktemp "${out_dir}/.cursor-panel-prompt.XXXXXX")" || {
-    echo "error: failed to create temp prompt file" >&2
-    exit 5
-  }
-  prompt_tmps+=("$prompt_tmp")
-  write_envelope_prompt "$prompt_tmp" "$model"
+work=$(mktemp -d "${TMPDIR:-/tmp}/cursor-panel.XXXXXX") || die "failed to create temp directory"
 
-  (
-    exec "$CURSOR_AGENT_WRAPPER" --model "$model" --out "$out_path" --prompt-file "$prompt_tmp"
-  ) &
-  pids+=("$!")
+snapshot=""
+if [ "$need_shared" -eq 1 ]; then
+  snapshot="$work/prompt.txt"
+  if [ -n "$prompt_file" ]; then
+    [ -f "$prompt_file" ] && [ ! -L "$prompt_file" ] || die "prompt file not a regular file: $prompt_file"
+    [ -r "$prompt_file" ] || die "prompt file not readable: $prompt_file"
+    cat -- "$prompt_file" >"$snapshot" || die "failed to read prompt file: $prompt_file"
+  else
+    if [ -t 0 ]; then
+      die "stdin is a TTY; pass --prompt-file or pipe a non-empty prompt"
+    fi
+    cat -- >"$snapshot" || die "failed to read prompt from stdin"
+  fi
+  [ -s "$snapshot" ] || die "prompt is empty"
+fi
+
+# Freeze per-seat prompts so they cannot change mid-run.
+i=0
+while [ "$i" -lt "${#models[@]}" ]; do
+  sp=${seat_prompts[$i]}
+  if [ -n "$sp" ]; then
+    frozen="$work/${labels[$i]}.prompt"
+    cat -- "$sp" >"$frozen" || die "failed to read seat prompt: $sp"
+    seat_prompts[$i]=$frozen
+  fi
   i=$((i + 1))
 done
 
+ok_count=0
 fail_count=0
-success_count=0
+skip_count=0
+fail_list=""
+manifest_lines=""
 
-for i in "${!pids[@]}"; do
-  pid="${pids[$i]}"
-  model="${models[$i]}"
-  out_path="${output_paths[$i]}"
-  status=0
+child_pid_list=()
+run_flags=()
+pub_modes=()
 
-  # Await every PID even after failures. If a trap interrupted wait, re-wait
-  # until the child is reaped.
-  while true; do
-    if wait "$pid"; then
-      status=0
-      break
-    else
-      status=$?
-      if [[ "$interrupted" -eq 1 ]] && kill -0 "$pid" 2>/dev/null; then
-        continue
-      fi
-      break
+i=0
+while [ "$i" -lt "${#models[@]}" ]; do
+  m=${models[$i]}
+  label=${labels[$i]}
+  dest="$out_dir/${label}.md"
+  kind=$(cursor_dest_kind "$dest")
+
+  if [ "$resume" -eq 1 ] && cursor_is_complete_regular "$dest"; then
+    if ! cursor_panel_provenance_matches "$dest" "$m"; then
+      cursor_panel_resume_refuse_provenance "$dest" "$m"
     fi
-  done
-
-  if [[ "$status" -eq 0 && -f "$out_path" ]]; then
-    success_count=$((success_count + 1))
-  else
-    fail_count=$((fail_count + 1))
-    # On interrupt, leave missing outputs for the cancellation pass.
-    if [[ "$interrupted" -eq 0 && ! -f "$out_path" ]]; then
-      write_marker_file "$out_path" "$model" "$status" "n/a" "non-zero invocation" \
-        "worker exited without writing an output file" || true
-    fi
+    printf 'cursor-panel.sh: resume skip %s -> %s\n' "$m" "$dest" >&2
+    skip_count=$((skip_count + 1))
+    manifest_lines="${manifest_lines}${label}.md"$'\n'
+    child_pid_list+=("")
+    run_flags+=("skip")
+    pub_modes+=("")
+    i=$((i + 1))
+    continue
   fi
+
+  if [ "$overwrite" -eq 1 ]; then
+    pub_mode=overwrite
+  elif [ "$resume" -eq 1 ] && [ "$kind" = "regular" ]; then
+    # Empty regular file: rerun and replace.
+    pub_mode=overwrite
+  else
+    pub_mode=noclobber
+  fi
+
+  if [ -n "${seat_prompts[$i]}" ]; then
+    pfile=${seat_prompts[$i]}
+  else
+    pfile=$snapshot
+  fi
+
+  raw="$work/${label}.raw"
+  "$agent_sh" --model "$m" --out "$raw" --prompt-file "$pfile" --overwrite &
+  pid=$!
+  child_pids="${child_pids} ${pid}"
+  child_pid_list+=("$pid")
+  run_flags+=("run")
+  pub_modes+=("$pub_mode")
+  i=$((i + 1))
 done
 
-if [[ "$interrupted" -eq 1 ]]; then
-  for i in "${!models[@]}"; do
-    out_path="${output_paths[$i]}"
-    model="${models[$i]}"
-    if [[ ! -f "$out_path" ]]; then
-      write_marker_file "$out_path" "$model" "130" "n/a" "cancelled" \
-        "panel interrupted before this model produced output" || true
+child_status_list=()
+i=0
+while [ "$i" -lt "${#models[@]}" ]; do
+  pid=${child_pid_list[$i]}
+  if [ -n "$pid" ]; then
+    set +e
+    wait "$pid"
+    child_status_list[$i]=$?
+    set -e
+  else
+    child_status_list[$i]=0
+  fi
+  i=$((i + 1))
+done
+child_pids=""
+
+i=0
+while [ "$i" -lt "${#models[@]}" ]; do
+  m=${models[$i]}
+  label=${labels[$i]}
+  dest="$out_dir/${label}.md"
+  raw="$work/${label}.raw"
+  flag=${run_flags[$i]}
+  st=${child_status_list[$i]}
+  pub_mode=${pub_modes[$i]}
+
+  if [ "$flag" = "skip" ]; then
+    i=$((i + 1))
+    continue
+  fi
+
+  if [ "$st" -ne 0 ]; then
+    fail_count=$((fail_count + 1))
+    fail_list="${fail_list} ${m}"
+    printf 'cursor-panel.sh: failed %s (exit %s)\n' "$m" "$st" >&2
+    i=$((i + 1))
+    continue
+  fi
+
+  if [ ! -s "$raw" ]; then
+    fail_count=$((fail_count + 1))
+    fail_list="${fail_list} ${m}"
+    printf 'cursor-panel.sh: failed %s (empty output)\n' "$m" >&2
+    i=$((i + 1))
+    continue
+  fi
+
+  set +e
+  write_provenance "$dest" "$m" "$label" "$raw" "$pub_mode"
+  wrap_st=$?
+  set -e
+  if [ "$wrap_st" -eq 0 ]; then
+    ok_count=$((ok_count + 1))
+    manifest_lines="${manifest_lines}${label}.md"$'\n'
+    printf 'cursor-panel.sh: wrote %s\n' "$dest" >&2
+  else
+    fail_count=$((fail_count + 1))
+    fail_list="${fail_list} ${m}"
+    if [ "$wrap_st" -eq 2 ]; then
+      printf 'cursor-panel.sh: refusing non-regular destination for %s\n' "$m" >&2
+    else
+      printf 'cursor-panel.sh: failed to wrap output for %s\n' "$m" >&2
     fi
-  done
-  echo "panel interrupted: ${success_count} succeeded, ${fail_count} failed/cancelled of ${#models[@]} models" >&2
+  fi
+  i=$((i + 1))
+done
+
+if [ "$interrupted" -ne 0 ]; then
   exit 130
 fi
 
-echo "panel complete: ${success_count} succeeded, ${fail_count} failed of ${#models[@]} models" >&2
+manifest="$out_dir/outputs.manifest"
+manifest_tmp=$(mktemp "${out_dir}/.outputs.manifest.XXXXXX") || die "failed to create manifest temp"
 
-if [[ "$fail_count" -gt 0 ]]; then
+manifest_nl='
+'
+manifest_merged=""
+manifest_seen="${manifest_nl}"
+
+append_merged_manifest_entry() {
+  _ent=$1
+  [ -n "$_ent" ] || return 0
+  case "$manifest_seen" in
+    *"${manifest_nl}${_ent}${manifest_nl}"*) return 0 ;;
+  esac
+  manifest_seen="${manifest_seen}${_ent}${manifest_nl}"
+  manifest_merged="${manifest_merged}${_ent}${manifest_nl}"
+}
+
+if [ -f "$manifest" ] && [ ! -L "$manifest" ]; then
+  while IFS= read -r _line || [ -n "${_line:-}" ]; do
+    _line=$(printf '%s' "$_line" | tr -d '\r')
+    case "$_line" in
+      ''|'#'*) continue ;;
+    esac
+    if cursor_manifest_entry_retainable "$_line" "$out_dir"; then
+      append_merged_manifest_entry "$_line"
+    else
+      printf 'cursor-panel.sh: dropping stale or unsafe manifest entry: %s\n' "$_line" >&2
+    fi
+  done < "$manifest"
+fi
+
+if [ -n "$manifest_lines" ]; then
+  while IFS= read -r _line || [ -n "${_line:-}" ]; do
+    [ -n "$_line" ] || continue
+    append_merged_manifest_entry "$_line"
+  done <<EOF
+${manifest_lines}
+EOF
+fi
+
+{
+  printf '%s\n' '# cursor-panel.sh outputs.manifest'
+  printf '%s\n' '# Authoritative seat list for this directory (not a glob).'
+  printf '%s\n' '# Merged from prior retainable entries plus this run published or resume-skipped seats; duplicates removed.'
+  printf '%s\n' '# Retain only safe relative basenames naming existing non-empty regular non-symlink artifacts. Traversal, absolute, documentation, and stale or unsafe paths are dropped.'
+  printf '%s' "$manifest_merged"
+} >"$manifest_tmp"
+set +e
+cursor_publish "$manifest_tmp" "$manifest" overwrite
+man_st=$?
+set -e
+if [ "$man_st" -ne 0 ]; then
+  rm -f -- "$manifest_tmp"
+  die "failed to publish outputs.manifest"
+fi
+
+printf 'cursor-panel.sh: %s succeeded, %s failed, %s skipped\n' \
+  "$ok_count" "$fail_count" "$skip_count" >&2
+
+if [ "$fail_count" -gt 0 ]; then
+  if [ -n "$fail_list" ]; then
+    printf 'cursor-panel.sh: failed models:%s\n' "$fail_list" >&2
+  fi
   exit 1
 fi
-exit 0

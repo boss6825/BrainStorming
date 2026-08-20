@@ -39,7 +39,9 @@ Roles are deliberate assignments for this pipeline, **not** claims about model p
 
 Fill placeholders, then send **one copy per model** with that model's runtime ID, role, and lens. Models must not see each other's answers before this stage finishes.
 
-For Codex: set `runtime_model_id` to `codex`, apply the Codex role/lens, invoke through `/codex:review`, and save the returned text unchanged into `panel/codex.md`.
+For Codex: set `runtime_model_id` to the **exact local Codex model id** (do not invent one), apply the Codex role/lens, invoke through `/codex:review`, wrap the returned text with the documented provenance header from `council/_template/panel/README.md`, save as `panel/codex-<slug>.md`, then list that basename in `panel/outputs.manifest`. A raw plugin dump is not provenance-complete.
+
+Cursor seats use `scripts/cursor-panel.sh --seat` (or `--model` plus one shared prompt) into `panel/`. Prompts live under `prompts/`, not `panel/`. Every Cursor prompt is **read-only**; `git status` before and after because `--force` can edit the tree.
 
 ```
 COUNCIL MODE 2 — INDEPENDENT DEEP DIVE
@@ -104,7 +106,7 @@ OUTPUT HEADINGS
 
 ## 4. Cross-pollination prompt
 
-Run **after** all independent panel files exist. The orchestrator (Opus) reads every `panel/*.md` and recombines across models. No scoring yet.
+Run **after** independent panel files exist. The orchestrator (Opus) reads **only** the files listed in `panel/outputs.manifest`. Do not glob `panel/*.md`. Do not read `panel/README.md`, `prompts/`, or `panel/adversarial/` (that pass has not run yet). If the manifest is missing, stop. No scoring yet.
 
 ```
 COUNCIL MODE 3 — CROSS-POLLINATION
@@ -132,8 +134,8 @@ RULES
 - Do not collapse disagreement into a fake consensus or majority vote.
 - Preserve contradictions explicitly — unresolved tension is useful signal.
 - Every candidate must combine material from at least two different source files
-  (panel/*.md paths). Seed docs may be cited in addition, not as a substitute for
-  a second panel file.
+  listed in `panel/outputs.manifest`. Seed docs may be cited in addition, not as a
+  substitute for a second panel file.
 - Prefer Conceptual Blending and Bisociation (toolkit 03) over averaging pitches.
 - Separate verified facts, inference, and speculation. Never fabricate citations.
 - Return Markdown only. Do not edit the repository.
@@ -160,7 +162,7 @@ Do not score novelty, feasibility, or fit yet.
 
 ### Codex adversarial review
 
-Invoke through `/codex:adversarial-review` (or equivalent Codex adversarial path). Save returned text unchanged.
+Invoke through `/codex:adversarial-review`. Save under `panel/adversarial/` with the documented Codex provenance header, then list the basename in `panel/adversarial/outputs.manifest`. Keep the initial `panel/outputs.manifest` unchanged.
 
 ```
 COUNCIL MODE 4 — CODEX ADVERSARIAL REVIEW
@@ -214,7 +216,7 @@ OUTPUT HEADINGS
 
 ### Cursor red team
 
-Send via Cursor Agent to a contrarian model (default: Grok). Lenses: Assumption Breaker + Literalist.
+Send via `scripts/cursor-panel.sh --seat` into `panel/adversarial/` (own `outputs.manifest`). Do not use `cursor-agent.sh` raw `--out` as panel evidence. Default lens: Assumption Breaker + Literalist. Read-only prompt; `git status` before and after.
 
 ```
 COUNCIL MODE 4 — CURSOR RED TEAM
@@ -288,9 +290,9 @@ HARD CONSTRAINTS
 FULL SESSION CONTEXT
 - Seed research: {contents_of_01_deep_research}
 - Divergent seeds: {contents_of_02_divergent_seeds}
-- Panel outputs: {contents_of_all_panel_files}
+- Panel outputs: {files listed in panel/outputs.manifest}
 - Cross-pollination: {contents_of_03_cross_pollination}
-- Adversarial: {contents_of_adversarial_reviews}
+- Adversarial: {files listed in panel/adversarial/outputs.manifest}
 
 RULES
 - Be blunt. Do not soften to be nice. A confident KILL is a successful session.
@@ -320,19 +322,21 @@ Write the result using `council/_template/04-synthesis.md`.
 
 ## 7. Governed ledger
 
-Shared memory across Council sessions is a **stigmergic trace**, not a dump of every chat. Governance comes from the lit review in [`old research on startup ideas/stigmergy_memory_llm_swarms_review.md`](../old%20research%20on%20startup%20ideas/stigmergy_memory_llm_swarms_review.md): ungoverned shared memory triggers the Memory Curse (more history hurts), collective false belief (bad traces self-reinforce), and bystander loafing (agents contribute less in a crowd).
+`LEDGER.md` is a **session-local** stigmergic trace, not a dump of every chat and not automatic memory for later sessions. The operational rules are **Council design choices motivated by** the lit review in [`old research on startup ideas/stigmergy_memory_llm_swarms_review.md`](../old%20research%20on%20startup%20ideas/stigmergy_memory_llm_swarms_review.md) (Memory Curse, collective false belief, bystander loafing). That review did not prove this exact schema.
 
 Operational rules for `LEDGER.md`:
 
+- **Curator-only** — panel models never write the ledger.
 - **Curated** — only deposits that survive convergence, not raw panel transcripts.
-- **Quality-weighted** — each entry has weight 1–5; low-weight noise does not drive the next session.
+- **Quality-weighted** — each entry has quality/weight 1–5 plus a why; majority vote never increases quality.
 - **Contradictions flagged** — opposing claims stay linked, never silently merged.
-- **Evaporation** — stale or superseded entries archive out of the working set so old traces stop cueing new work.
-- **Bounded reinforcement** — the same claim may gain at most **+1 weight per session**, preventing runaway confirmation.
-- **Types** — CoALA-ish stores, not a dump taxonomy: `working` | `episodic` |
-  `semantic` | `procedural` (see the session `LEDGER.md` template).
-- **Status** — `active` | `contested` | `stale` | `archived`. Confidence is
-  `low` | `medium` | `high`, kept separate from weight.
+- **Full schema always** — status changes; rows and IDs are never deleted.
+- **`review-by` / stale** — expired entries become `stale` and must not drive new decisions.
+- **Bounded reinforcement** — the same claim may gain at most **+1 quality point per session**.
+- **Types** — optional CoALA-ish stores: `working` | `episodic` | `semantic` | `procedural`.
+- **Status** — `active` | `contested` | `stale` | `retracted` | `rejected` | `superseded`.
+- **No automatic cross-session reuse** — a later session may cite this file by path only after a curator/human chooses to.
+- **Intake** — cross-pollination reads `panel/outputs.manifest`; synthesis also reads `panel/adversarial/outputs.manifest`. Never glob, never README, never prompts.
 
 After synthesis, curate with:
 
@@ -356,9 +360,10 @@ For each proposed entry:
 - give the implication and decay/archive rule.
 
 If evidence conflicts, create linked contested entries. Never manufacture consensus.
-At session close, archive working entries.
+At session close, mark `working` entries stale or superseded rather than deleting them.
+Do not preload this ledger into another session automatically.
 
-Write the result using the session LEDGER.md schema (Active / Contested / Archived).
+Write the result using the session LEDGER.md schema (full-schema table + contradictions + append-only change log).
 ```
 
 ---
@@ -367,10 +372,10 @@ Write the result using the session LEDGER.md schema (Active / Contested / Archiv
 
 Matches the five `/council` modes. **Local-only:** Codex plugin and Cursor Agent cannot run in Claude Code cloud/web mode. If those tools are missing, stop — do **not** replace missing models with same-model role-play.
 
-1. **Mode 1 — Diverge** — Orchestrator writes `00-brief.md`, seed research `01-deep-research.md`, and a wide seed set `02-divergent-seeds.md` (Idea Cascade / anti-clustering levers). Judgement off.
-2. **Mode 2 — Independent deep dive** — Fan out the §3 prompt in parallel via Cursor + Codex into `panel/<model>.md`. No model sees other panel answers yet.
-3. **Mode 3 — Cross-pollinate** — Orchestrator runs §4 → `03-cross-pollination.md`.
-4. **Mode 4 — Adversarial** — Codex adversarial (§5) + Cursor red team (§5).
-5. **Mode 5 — Converge** — Orchestrator runs §6 → `04-synthesis.md`, then ledger curation (§7) → `LEDGER.md`.
+1. **Mode 1 — Diverge** — Orchestrator writes `00-brief.md`, seed research `01-deep-research.md`, and a wide seed set `02-divergent-seeds.md` (≥25 mechanism-distinct seeds; Idea Cascade / anti-clustering levers). Judgement off.
+2. **Mode 2 — Independent deep dive** — Materialize read-only prompts under `prompts/`. Fan Cursor seats with `cursor-panel.sh --seat` into `panel/` (`outputs.manifest`). Launch `/codex:review` in the same operator turn when tools can run concurrently. Provenance header required before listing Codex. `git status` before/after. No model sees other panel answers yet.
+3. **Mode 3 — Cross-pollinate** — Orchestrator runs §4 → `03-cross-pollination.md` from `panel/outputs.manifest` only.
+4. **Mode 4 — Adversarial** — Codex adversarial (§5) + Cursor red team via `cursor-panel.sh --seat` into `panel/adversarial/` (§5).
+5. **Mode 5 — Converge** — Orchestrator runs §6 → `04-synthesis.md` from both manifests, then ledger curation (§7) → `LEDGER.md`.
 
 Manual drivers: paste prompts from this file. Skill drivers: `/council` owns the lifecycle; `/ideate` only routes Recipe 5 here. Theory siblings: [03](03-combinatorial-creativity.md) for blending, [04](04-llm-divergence-techniques.md) for why simulated panels are not enough, [05](05-prompt-library.md) Recipe 5 for the composed session wrapper.

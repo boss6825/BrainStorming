@@ -2,7 +2,7 @@
 
 Ad-hoc, coding-agent-driven Phase 1 workflow for heterogeneous multi-model thinking. Claude Opus orchestrates the session and writes artifacts; it does **not** substitute for panel members. Real disagreement requires Codex and Cursor CLI models running separately.
 
-This is a thinking system, not a product. Phase 2 API automation is out of scope and not implemented here.
+This is a thinking system, not a product. Phase 2 API automation is out of scope and not implemented here. See [`../docs/ROADMAP-api-mode.md`](../docs/ROADMAP-api-mode.md).
 
 ## What Council does
 
@@ -11,9 +11,9 @@ Forces a diverge → deepen → recombine → pressure-test → converge loop so
 Pipeline:
 
 1. **Diverge** — wide, mechanism-diverse seed set → `02-divergent-seeds.md`
-2. **Deep-dive panel** — independent model passes in parallel → `panel/<model>.md`
+2. **Deep-dive panel** — independent model passes in parallel → `panel/<label>.md` + `panel/outputs.manifest`
 3. **Cross-pollinate** — Conceptual Blending & Bisociation across panel outputs → `03-cross-pollination.md`
-4. **Adversarial** — Codex adversarial review + Cursor red-team → files under `panel/`
+4. **Adversarial** — Codex adversarial review + Cursor red-team → `panel/adversarial/`
 5. **Converge** — scored synthesis, honest verdict, ledger deposits → `04-synthesis.md`, `LEDGER.md`
 
 Opus may seed research and synthesize. Panel members must remain heterogeneous. If only Opus runs, you do not have a Council session — you have a monologue with extra files.
@@ -23,9 +23,9 @@ Opus may seed research and synthesize. Panel members must remain heterogeneous. 
 | Mode | Who | Artifact |
 |---|---|---|
 | Diverge | Orchestrator (Opus) | `02-divergent-seeds.md` |
-| Deep-dive panel | Cursor models + Codex, in parallel | `panel/<sanitized-model-id>.md`, `panel/codex.md` |
+| Deep-dive panel | Cursor models + Codex, in parallel | `panel/<label>.md`, `panel/codex-<slug>.md`, `panel/outputs.manifest` |
 | Cross-pollinate | Orchestrator | `03-cross-pollination.md` |
-| Adversarial | Codex adversarial + Cursor red-team | `panel/codex-adversarial.md`, `panel/<model>-red-team.md` |
+| Adversarial | Codex adversarial + Cursor red-team | `panel/adversarial/` + `panel/adversarial/outputs.manifest` |
 | Converge | Orchestrator | `04-synthesis.md` + `LEDGER.md` updates |
 
 Do not skip modes to save time. Do not score during divergence or cross-pollination. Do not treat panel popularity as evidence.
@@ -39,23 +39,30 @@ Heterogeneous panel execution requires **local Claude Code** with both tools ins
 
 Setup check: `/council-setup`
 
-In Claude Code **cloud/web**, you may inspect or scaffold Council files. You **cannot** invoke local Codex or Cursor CLI from cloud/web. Do not claim a cloud session ran a real panel.
+In Claude Code **cloud/web**, you may inspect or scaffold Council files. You **cannot** invoke local Codex or Cursor CLI from cloud/web. Do not claim a cloud session ran a real panel. Do not simulate missing members.
 
 ## Session layout
 
-Copy `_template/` into a dated session folder. Actual panel filenames are generated at runtime from model IDs (sanitized). The last four names under `panel/` below are examples only.
+Copy `_template/` into a dated session folder.
 
 ```text
 council/YYYY-MM-DD-slug/
 ├── 00-brief.md
 ├── 01-deep-research.md
 ├── 02-divergent-seeds.md
+├── prompts/
+│   ├── README.md
+│   ├── shared.md
+│   └── seat-*.md
 ├── panel/
 │   ├── README.md
-│   ├── <sanitized-cursor-model-id>.md
-│   ├── codex.md
-│   ├── <sanitized-cursor-model-id>-red-team.md
-│   └── codex-adversarial.md
+│   ├── outputs.manifest
+│   ├── <label>.md
+│   ├── codex-<slug>.md
+│   └── adversarial/
+│       ├── README.md
+│       ├── outputs.manifest
+│       └── …
 ├── 03-cross-pollination.md
 ├── 04-synthesis.md
 └── LEDGER.md
@@ -81,23 +88,36 @@ Typical flow:
 
 Stage order: `brief` → `research` → `diverge` → `panel` → `cross-pollinate` → `adversarial` → `converge` → `complete` (or `blocked`).
 
+## Parallelism and `--force`
+
+`scripts/cursor-panel.sh` fans Cursor seats out concurrently (`--seat` for distinct persona prompts, or `--model` plus one shared `prompts/shared.md`). Launch Codex in the same operator turn when tools can run concurrently. Initial Codex review goes in `panel/outputs.manifest`; adversarial Codex review goes in `panel/adversarial/outputs.manifest`. `--resume` skips a Cursor seat only on an exact matching `| Model (exact) | \`id\` |` header.
+
+Exact Cursor invocation:
+
+```bash
+cursor-agent -p "$prompt" --model "$model" --output-format text --force
+```
+
+`--force` can edit the working tree. Council requires `git status` before and after, and **read-only** panel prompts.
+
 ## Failure and partial-run policy
 
-- One model failing does **not** kill the panel. Continue with successful members.
-- Keep failure files in `panel/` (error, empty, or timeout recorded). Do not delete them to make the folder look clean.
+- One model failing does **not** kill successful siblings. Keep their published files.
+- Cursor wrappers **do not publish** empty or nonzero children as seat evidence. Record those failures in the brief/synthesis evidence state.
 - Do not advance to cross-pollination, adversarial, or converge gates if required inputs for that gate are missing.
 - Do not complete a session that skipped adversarial pressure on front-runners.
 - Record which models failed in synthesis. Partial panels are usable; silent omissions are not.
+- Retry failed Cursor seats with `cursor-panel.sh --resume` or `--seat`; do not use raw `cursor-agent.sh --out` as panel evidence.
 
 ## Ledger governance
 
-`LEDGER.md` is curated shared memory, not a transcript dump.
+`LEDGER.md` is curated **session-local** shared memory, not a transcript dump.
 
 - Source- and quality-weighted deposits only.
 - Contradictions become linked contested entries — never silent merge into consensus.
 - Stale traces cannot drive scoring.
 - Multiple models repeating one source ≠ independent reinforcement.
 - Panel popularity alone never increases weight.
-- Evaporation and review intervals apply; expired entries must be archived or re-reviewed before reuse.
+- Full schema at every status; append-only change log; no automatic cross-session reuse.
 
-See the session `LEDGER.md` header for the full weight scale, evaporation rules, and entry template.
+See the session `LEDGER.md` header for the quality scale, types, and entry template.

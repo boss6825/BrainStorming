@@ -2,6 +2,8 @@
 
 Orchestrator seed research only. Not a panel output. Do not present unsupported model recall as fact. Do not load prior ledgers wholesale. Do not rank or kill ideas here — that happens later.
 
+Ask for **conclusions, evidence, assumptions, uncertainty, counterarguments, and a concise rationale.** Do not request hidden chain-of-thought or internal scratchpads.
+
 ## Research questions
 
 - {research question}
@@ -22,24 +24,33 @@ Orchestrator seed research only. Not a panel output. Do not present unsupported 
 | {claim} | {gap, date sensitivity, or missing primary source} | {low/medium} | {why it matters} |
 | {claim} | {gap, date sensitivity, or missing primary source} | {low/medium} | {why it matters} |
 
+## Named assumptions
+
+- {named, not buried}
+
 ## Existing approaches and conventional framing
 
 - {dominant framing in the space}
 - {common solution pattern and its failure mode}
 - {competitor / prior art pattern — descriptive, not ranked}
 
-## Gaps and contradictions
+## Gaps, contradictions, and obvious invalidators
 
 - {gap between claimed consensus and evidence}
 - {contradiction between sources A and B}
 - {question the conventional framing refuses to ask}
+- {kill shot already visible — do not wait for the adversarial pass}
+
+## Concise rationale
+
+{Why this framing of the space, in a short paragraph.}
 
 ## Relevant prior-ledger traces
 
-Pull only specific, non-stale ledger IDs that bear on this brief. Do not dump prior sessions.
+Pull only specific, non-stale ledger IDs that bear on this brief. Do not dump prior sessions. Use the ID format from this session's `LEDGER.md` (that schema is still a merge decision).
 
-- `{L-YYYYMMDD-NN}` — {one-line relevance}; weight `{N}`; status `{active|contested}`
-- `{L-YYYYMMDD-NN}` — {one-line relevance}; weight `{N}`; status `{active|contested}`
+- `{id}` — {one-line relevance}; status `{status}`
+- `{id}` — {one-line relevance}; status `{status}`
 
 If none: `None relevant / none non-stale.`
 

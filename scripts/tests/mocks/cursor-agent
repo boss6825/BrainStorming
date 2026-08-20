@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Mock cursor-agent for repository tests. Speaks the exact flag contract:
+#   cursor-agent -p "$prompt" --model "$model" --output-format text --force
+set -euo pipefail
+
+prompt=""
+model=""
+output_format=""
+force=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -p)
+      [ $# -ge 2 ] || { echo "mock cursor-agent: -p requires a value" >&2; exit 2; }
+      prompt=$2
+      shift 2
+      ;;
+    --model)
+      [ $# -ge 2 ] || { echo "mock cursor-agent: --model requires a value" >&2; exit 2; }
+      model=$2
+      shift 2
+      ;;
+    --output-format)
+      [ $# -ge 2 ] || { echo "mock cursor-agent: --output-format requires a value" >&2; exit 2; }
+      output_format=$2
+      shift 2
+      ;;
+    --force)
+      force=1
+      shift
+      ;;
+    *)
+      echo "mock cursor-agent: unexpected argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [ -z "$model" ]; then
+  echo "mock cursor-agent: --model is required" >&2
+  exit 2
+fi
+if [ "$output_format" != "text" ]; then
+  echo "mock cursor-agent: expected --output-format text, got: ${output_format:-<empty>}" >&2
+  exit 2
+fi
+if [ "$force" -ne 1 ]; then
+  echo "mock cursor-agent: --force is required" >&2
+  exit 2
+fi
+if [ -z "$prompt" ]; then
+  echo "mock cursor-agent: empty -p prompt" >&2
+  exit 2
+fi
+
+if [ -n "${MOCK_LOG:-}" ]; then
+  {
+    printf 'model=%s\n' "$model"
+    printf 'prompt_len=%s\n' "${#prompt}"
+    printf 'pid=%s\n' "$$"
+    printf '%s\n' '---'
+  } >>"$MOCK_LOG"
+fi
+
+# Behaviour switches encoded in the model id so tests stay data-driven.
+case "$model" in
+  *grandchild*)
+    (
+      trap '' HUP INT TERM
+      while true; do
+        sleep 1
+      done
+    ) &
+    gpid=$!
+    if [ -n "${MOCK_GRANDCHILD_PID_FILE:-}" ]; then
+      printf '%s\n' "$gpid" >"$MOCK_GRANDCHILD_PID_FILE"
+    fi
+    while true; do
+      sleep 1
+    done
+    ;;
+  *writefail*)
+    printf 'MOCK_SHOULD_NOT_PUBLISH\n'
+    printf 'model=%s\n' "$model"
+    printf 'prompt=%s\n' "$prompt"
+    echo "mock cursor-agent: write-then-fail for $model" >&2
+    exit 1
+    ;;
+  *empty*)
+    exit 0
+    ;;
+  *fail*)
+    echo "mock cursor-agent: simulated failure for $model" >&2
+    exit 1
+    ;;
+  *slow*)
+    sleep "${MOCK_SLEEP:-1}"
+    ;;
+esac
+
+printf 'MOCK_OK\n'
+printf 'model=%s\n' "$model"
+printf 'prompt=%s\n' "$prompt"

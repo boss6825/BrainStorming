@@ -1,10 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(scripts/cursor-agent.sh *)",
-      "Bash(scripts/cursor-panel.sh *)",
-      "Bash(cursor-agent *)",
-      "Bash(codex *)"
+      "Bash(./scripts/cursor-agent.sh:*)",
+      "Bash(scripts/cursor-agent.sh:*)",
+      "Bash(./scripts/cursor-panel.sh:*)",
+      "Bash(scripts/cursor-panel.sh:*)",
+      "Bash(cursor-agent --list-models)",
+      "Bash(cursor-agent --version)",
+      "Bash(codex --version)",
+      "Bash(command -v cursor-agent)",
+      "Bash(command -v codex)"
     ]
   }
 }

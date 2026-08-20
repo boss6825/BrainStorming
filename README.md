@@ -9,16 +9,16 @@ A personal thinking system for startup, life, research, AI/ML, and science ideas
 Two operator paths:
 
 1. **`/ideate`** — one orchestrator (usually Claude) runs a diverge-then-converge session from the toolkit. Always available, including in cloud/web.
-2. **`/council`** — a **heterogeneous** multi-model panel. Real Cursor models and Codex research in parallel, then the orchestrator cross-pollinates, red-teams, and converges. **Local Claude Code only.**
+2. **`/council`** — a **heterogeneous** multi-model panel. Real Cursor models and Codex research in parallel, then the orchestrator cross-pollinates, red-teams, and converges. **Local Claude Code** for the panel seats.
 
 Council pipeline (five modes):
 
 | Mode | What happens | Artifact |
 |---|---|---|
 | 1. Diverge | Wide, mechanism-diverse seeds; judgement off | `02-divergent-seeds.md` |
-| 2. Deep-dive panel | Independent Cursor + Codex passes, in parallel | `panel/<model>.md` |
+| 2. Deep-dive panel | Independent Cursor + Codex passes, in parallel | `panel/<label>.md` + `panel/outputs.manifest` |
 | 3. Cross-pollinate | Conceptual Blending & Bisociation across models | `03-cross-pollination.md` |
-| 4. Adversarial | `/codex:adversarial-review` + Cursor red-team | `panel/*-red-team.md`, `panel/codex-adversarial.md` |
+| 4. Adversarial | `/codex:adversarial-review` + Cursor red-team | `panel/adversarial/` + its `outputs.manifest` |
 | 5. Converge | Score novelty × feasibility × fit; honest KILL / PIVOT / VALIDATE | `04-synthesis.md`, `LEDGER.md` |
 
 Sessions live at `council/YYYY-MM-DD-slug/`. Copy from `council/_template/`. Do not skip diverge→converge boundaries. Do not simulate missing models.
@@ -27,13 +27,13 @@ Sessions live at `council/YYYY-MM-DD-slug/`. Copy from `council/_template/`. Do 
 
 | Tool | Role |
 |---|---|
-| Claude Opus | Orchestrates research, divergence, cross-pollination, and convergence |
-| `/ideate` | Single-orchestrator structured ideation and routing |
-| `/council` | Heterogeneous local multi-model session |
+| Claude Opus | Orchestrates research, divergence, cross-pollination, convergence, **curator-only ledger writes** |
+| `/ideate` | Single-orchestrator structured ideation and routing (Recipes 1–4) |
+| `/council` | Heterogeneous local multi-model session (Recipe 5) |
 | Creative Thinking Toolkit | Theory, prompts, techniques, and recipes (`01`–`07`) |
 | Codex plugin | Independent review, adversarial review, and rescue (`/codex:review`, `/codex:adversarial-review`, `/codex:rescue`) |
-| `/ask-cursor` + `scripts/` | One-model or parallel Cursor bridge (`cursor-agent`) |
-| `/council-setup` | Local readiness check for `cursor-agent` + `codex` |
+| `/ask-cursor` + `scripts/` | One-model or parallel Cursor bridge (`cursor-agent.sh` / `cursor-panel.sh`) |
+| `/council-setup` | Local readiness check for `cursor-agent` + `codex` + wrappers |
 
 ## One-time local setup
 
@@ -49,12 +49,11 @@ cursor-agent --list-models
 
 command -v codex
 codex --version
-codex login status
 ```
 
-4. In local Claude Code, run **`/council-setup`**. Do not guess readiness from install alone. Model IDs come from `--list-models`, not from display names.
+4. In local Claude Code, run **`/council-setup`**. Do not guess readiness from install alone. Model IDs come from `--list-models`, not from display names. Codex inherits the local default; `.codex/config.toml` sets reasoning effort only.
 
-Optional project defaults: `.codex/config.toml` (Codex model/effort) and `.claude/settings.json` (allow-rules for the scripts / CLIs).
+`.claude/settings.json` allow-lists the wrappers plus exact discovery/version commands. It does not grant unrestricted `cursor-agent *` or `codex *`.
 
 ## Run a Council session
 
@@ -70,6 +69,29 @@ Typical sequence:
 1. `/council-setup`
 2. `/council {question}` — creates `council/YYYY-MM-DD-slug/` from `_template/`
 3. `/council resume council/{YYYY-MM-DD-slug}` — continue from `Current stage` without overwriting completed work
+
+Cursor fan-out after **read-only** prompt files exist under `prompts/` (use `--seat` when personas differ):
+
+```bash
+./scripts/cursor-panel.sh \
+  --seat <id-from-list-models> council/<slug>/prompts/seat-a.md \
+  --seat <id> council/<slug>/prompts/seat-b.md \
+  --out-dir council/<slug>/panel
+```
+
+Exact CLI contract (do not "improve" the flags):
+
+```bash
+cursor-agent -p "$prompt" --model "$model" --output-format text --force
+```
+
+**`--force` can edit the working tree.** Panel prompts must tell models to stay read-only. `git status` (and `git diff --stat`) **before and after**. Unexpected diffs → stop, restore, do not cross-pollinate yet.
+
+`--resume` skips a seat only when the existing file's `| Model (exact) | \`id\` |` header matches the requested model exactly. Cross-pollination reads `panel/outputs.manifest` only. Cursor red-team uses `--out-dir council/<slug>/panel/adversarial`.
+
+Ask models for **conclusions, evidence, assumptions, uncertainty, counterarguments, and a concise rationale** — never hidden chain-of-thought.
+
+Mock tests for the wrappers (no live Cursor): `scripts/tests/test-cursor-scripts.sh`.
 
 Details: [`council/README.md`](council/README.md), skill [`.claude/skills/council/SKILL.md`](.claude/skills/council/SKILL.md), method [`creative-thinking-toolkit/07-multi-model-panel.md`](creative-thinking-toolkit/07-multi-model-panel.md).
 

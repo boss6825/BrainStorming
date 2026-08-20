@@ -55,3 +55,19 @@ Every source consulted while building this toolkit (July 2026), grouped by topic
 - Temperature / stochastic framing — https://www.buildmvpfast.com/blog/inject-randomness-llm-creativity-quality-temperature-sampling-2026
 - Ideation prompt patterns — https://www.itonics-innovation.com/blog/chatgpt-prompts-for-ideation · https://www.aiprompthackers.com/p/this-ai-prompt-combines-totally-unrelated-things-for-creativity-boosts
 - General prompt-engineering reference — https://github.com/dair-ai/Prompt-Engineering-Guide
+
+## Multi-model panel / Council (07)
+
+Method file [`07-multi-model-panel.md`](07-multi-model-panel.md) operationalizes [`04`](04-llm-divergence-techniques.md) PanelGPT with *real* vendors plus [`03`](03-combinatorial-creativity.md) blending. Ledger safeguards in `council/_template/LEDGER.md` are Council design choices **motivated by** the repo's stigmergy review, not a schema that review proved. Prompts were authored for this repo; they are not copies of the papers.
+
+- Wharton diversity trap (high-quality, low-diversity LLM ideas) — see the [`04`](04-llm-divergence-techniques.md) quantity-forcing / diversity caveat sources above
+- PanelGPT (simulated panel; Council is the heterogeneous-model version) — https://github.com/holarissun/PanelGPT
+- Conceptual blending / bisociation — see Combinatorial creativity (03) above
+- Ledger-State Stigmergy — https://doi.org/10.48550/arXiv.2604.03997
+- The Memory Curse (more accessible history can *degrade* cooperation) — https://doi.org/10.48550/arXiv.2605.08060
+- When Agents Misremember Collectively (shared-memory false belief) — https://doi.org/10.48550/arXiv.2602.00428
+- The Bystander Effect in Multi-Agent Reasoning — https://doi.org/10.48550/arXiv.2605.10698
+- Governed Collaborative Memory (curated shared memory) — https://doi.org/10.48550/arXiv.2605.04264
+- CoALA memory taxonomy — https://doi.org/10.48550/arXiv.2309.02427
+- Repo-local synthesis of the above — [`../old research on startup ideas/stigmergy_memory_llm_swarms_review.md`](../old%20research%20on%20startup%20ideas/stigmergy_memory_llm_swarms_review.md)
+- Cursor CLI / Codex plugin are *tools* for Phase 1, not literature; invocation contract is documented in [`07`](07-multi-model-panel.md) and `scripts/cursor-agent.sh`

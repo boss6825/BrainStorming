@@ -8,6 +8,8 @@
 
 <!-- Current stage values: brief | research | diverge | panel | cross-pollinate | adversarial | converge | complete | blocked -->
 
+Copy `council/_template/` to `council/{YYYY-MM-DD-slug}/` and fill this in **before** diverging. Tight beats exhaustive. Constraints already in `path-forward/` should be reused, not re-invented.
+
 ## Question
 
 - {question}
@@ -57,3 +59,19 @@
 
 - {out-of-scope item}
 - {out-of-scope item}
+
+## Panel plan (filled by `/council` before deep-dive)
+
+Discover Cursor ids with `cursor-agent --list-models`. Do not invent a Codex model id.
+
+| Seat | Model id (exact) | Persona / mode | Prompt file | Seeds / questions |
+|---|---|---|---|---|
+| Cursor 1 | {from `--list-models`} | | | |
+| Cursor 2 | | | | |
+| Codex | {local default} | | | |
+
+## Git baseline (required before `--force` panel)
+
+- Pre-panel `git status` captured: {yes/no}
+- Post-panel `git status` checked: {yes/no}
+- Unexpected working-tree changes: {none / describe + restored}

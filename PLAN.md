@@ -1,6 +1,12 @@
 # Plan: A multi-LLM "panel of experts" thinking system
 
-> **Status (Aug 2026):** Phase 1 scaffolding is built in this repo (`council/`, `/council`, `/ask-cursor`, `/council-setup`, `scripts/`, toolkit `07`). This file remains the design spec. Phase 2 is **not** implemented — see [`docs/ROADMAP-api-mode.md`](docs/ROADMAP-api-mode.md).
+## Implementation status
+
+**Phase 1 (this document's build): implemented in-tree.** Session layout, skills, Cursor wrappers, Codex effort config, toolkit `07`, Recipe 5, user manual, and the Phase 2 roadmap doc are in the repo. Live multi-model runs still require **local** `codex` + `cursor-agent` (see `/council-setup`). Cloud Claude Code cannot execute those CLIs.
+
+**Phase 2 (API-key product): not built, not in scope.** Roadmap only: [`docs/ROADMAP-api-mode.md`](docs/ROADMAP-api-mode.md). Do not implement it as part of a Phase 1 task.
+
+The sections below are the original design spec. Where scaffolding is described as "what gets created," those paths now exist (see `AGENTS.md`).
 
 ## Context — what this is and why
 
@@ -27,16 +33,16 @@ So the system mechanizes divergence with **real heterogeneous models**: Claude O
 You drive these ad-hoc; `/council` orchestrates each and writes to a session folder.
 
 1. **Diverge** — Opus generates a deliberately *wide, diverse* seed set (using the toolkit's anti-clustering levers) → `02-divergent-seeds.md`.
-2. **Deep-dive (the panel)** — each seed/question fans out to multiple models **in parallel** via Cursor + Codex; each model researches from its own priors/persona → `panel/<model>.md`. This is the brain-like parallel deepening + the time saver.
+2. **Deep-dive (the panel)** — each seed/question fans out to multiple models **in parallel** via Cursor + Codex; each model researches from its own priors/persona → `panel/<label>.md`. Launch Codex and Cursor seats in the same operator turn when tool execution supports concurrency. This is the brain-like parallel deepening + the time saver.
 3. **Cross-pollinate** — Opus reads all panel outputs and combines ideas *across* models using Conceptual Blending & Bisociation (toolkit `03`) → `03-cross-pollination.md`. This is the human-style recombination you emphasized.
-4. **Adversarial** — `/codex:adversarial-review` + a Cursor red-team pass pressure-tests the front-runners.
+4. **Adversarial** — `/codex:adversarial-review` + a Cursor red-team pass (`cursor-panel.sh --seat` into `panel/adversarial/`) pressure-tests the front-runners.
 5. **Converge** — Opus scores (novelty × feasibility × fit), red-teams #1, writes an honest verdict (incl. KILL) → `04-synthesis.md`, updates the ledger.
 
 ## What gets created
 
 **Workspace / designated folder**
-- `council/` with `council/README.md` (how it works) and a `_template/` session skeleton: `00-brief.md`, `01-deep-research.md` (Opus seed doc), `02-divergent-seeds.md`, `panel/`, `03-cross-pollination.md`, `04-synthesis.md`, and **`LEDGER.md`** — a *governed* shared trace. (Sessions live at `council/YYYY-MM-DD-slug/`.)
-- The `LEDGER.md` governance rules come straight from your own `stigmergy_memory_llm_swarms_review.md`: curated, quality-weighted, contradictions flagged not silently merged — to dodge the Memory Curse / collective-false-belief failure modes you documented.
+- `council/` with `council/README.md` (how it works) and a `_template/` session skeleton: `00-brief.md`, `01-deep-research.md` (Opus seed doc), `02-divergent-seeds.md`, `prompts/` (shared + per-seat prompt files), `panel/` (model outputs + `outputs.manifest`; not README-as-seat) plus `panel/adversarial/` (Cursor red-team via `cursor-panel.sh --seat`, own manifest), `03-cross-pollination.md`, `04-synthesis.md`, and **`LEDGER.md`** — a *governed* shared trace. (Sessions live at `council/YYYY-MM-DD-slug/`.)
+- The `LEDGER.md` governance rules are **Council design choices motivated by** `stigmergy_memory_llm_swarms_review.md` (curated, quality-weighted, contradictions flagged not silently merged) so the Memory Curse / collective-false-belief failure modes documented there are harder to stumble into. The review does not prove this exact schema.
 
 **Skills** (`.claude/skills/`)
 - `council/SKILL.md` — the orchestrator: session lifecycle, the 5 modes, calls the Cursor bridge + Codex.
@@ -45,12 +51,12 @@ You drive these ad-hoc; `/council` orchestrates each and writes to a session fol
 
 **Scripts** (`scripts/`)
 - `cursor-agent.sh` — single-model wrapper: `cursor-agent -p "<prompt>" --model <m> --output-format text --force`, prompt from file/stdin, writes to `--out`.
-- `cursor-panel.sh` — launches all requested models **in parallel** (background + `wait`), collects each into `panel/<model>.md`. This is the concrete parallelism/time-saving mechanism.
+- `cursor-panel.sh` — launches requested models **in parallel** (background + `wait`). Repeatable `--model` shares one prompt; repeatable `--seat MODEL PROMPT_FILE` gives per-seat prompts; forms may be combined. Collects each into `panel/<label>.md` with exact provenance and writes `outputs.manifest` as an authoritative merge (prior retainable entries plus this run; Codex artifacts survive; stale/unsafe paths dropped). `--resume` skips only on exact matching `| Model (exact) |` provenance.
 
 **Config**
-- `.claude/settings.json` (checked in) — permission allow-rules so the scripts / `cursor-agent` / `codex` run without prompts locally.
+- `.claude/settings.json` (checked in) — permission allow-rules for the wrappers plus exact `cursor-agent --list-models` / `--version` and `codex --version`. No unrestricted `cursor-agent:*` or `codex:*` wildcards.
 - `AGENTS.md` (repo root) — the "critical thinker" system prompt Cursor/Codex models pick up: present your reasoning, disagree, flag what's wrong, don't flatter.
-- `.codex/config.toml` — optional Codex default model/effort.
+- `.codex/config.toml` — Codex reasoning effort only; inherit the local/plugin model id.
 
 **Docs**
 - Rewrite `README.md` into a small, scannable **user manual**: what the repo is, the pipeline, a tools table (Opus, `/ideate`, `/council`, toolkit, Codex plugin, Cursor bridge), one-time local setup, how to run a session, and the cloud-mode note.
@@ -58,11 +64,12 @@ You drive these ad-hoc; `/council` orchestrates each and writes to a session fol
 - `docs/ROADMAP-api-mode.md` — the Phase-2 API-key productization design (not implemented now).
 
 ## Reuses (not duplicating)
-Builds directly on `04-llm-divergence-techniques.md` (PanelGPT / Tree-of-Thoughts / persona rotation), `03-combinatorial-creativity.md` (blending/bisociation), `05` recipes + convergence scorer, the diverge→converge discipline, and the stigmergy review's governance safeguards.
+Builds directly on `04-llm-divergence-techniques.md` (PanelGPT / Tree-of-Thoughts / persona rotation), `03-combinatorial-creativity.md` (blending/bisociation), `05` recipes + convergence scorer, the diverge→converge discipline, and ledger policy **motivated by** (not proven by) the stigmergy review.
 
 ## Verification
-- In this session: `bash -n scripts/*.sh`, validate `settings.json`/`config.toml`, confirm skill frontmatter matches `/ideate`.
+- In-tree: `bash -n scripts/*.sh scripts/tests/*.sh scripts/tests/mocks/*`, `scripts/tests/test-cursor-scripts.sh` (mock `cursor-agent`; no live CLI), validate `settings.json` / `.codex/config.toml`, confirm skill frontmatter matches `/ideate`, `git diff --check`.
+- Wrapper syntax is **designed for macOS Bash 3.2** (no associative arrays, no `wait -n`, no GNU-only helpers). Verification here uses the **installed** Bash (`bash --version`); this is not a claim that Bash 3.2 was runtime-tested.
 - Locally (you): run `/council-setup`; run one tiny session end-to-end on a throwaway idea to confirm the panel fans out and files land.
 
 ## Git
-Work stays on `claude/startup-idea-validation-llms-lxslfc`, committed in logical chunks and pushed. No PR unless you ask.
+Phase 1 scaffolding is in-tree on whatever branch the operator is using. Commit in logical chunks when asked.

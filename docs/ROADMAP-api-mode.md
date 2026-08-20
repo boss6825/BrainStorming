@@ -11,10 +11,10 @@ Replace local CLI/plugin adapters with API-key provider calls while keeping the 
 ## Phase 1 assets to preserve
 
 - Toolkit prompts and recipes in `creative-thinking-toolkit/07-multi-model-panel.md` and Recipe 5 in `05-prompt-library.md`
-- Session artifact names: `00-brief.md`, `01-deep-research.md`, `02-divergent-seeds.md`, `panel/<model>.md`, `03-cross-pollination.md`, `04-synthesis.md`, `LEDGER.md`
+- Session artifact names: `00-brief.md`, `01-deep-research.md`, `02-divergent-seeds.md`, `prompts/`, `panel/<label>.md`, `panel/outputs.manifest`, `panel/adversarial/`, `03-cross-pollination.md`, `04-synthesis.md`, `LEDGER.md`
 - Phase boundaries (diverge → independent panel → cross-pollinate → adversarial → converge → ledger curation)
 - Default persona/role/lens assignments from toolkit 07
-- Ledger schema and governance rules (curated, quality-weighted, contradictions flagged, evaporation, bounded +1 reinforcement)
+- Ledger schema and governance rules (curator-only, quality-weighted, contradictions flagged, `review-by`/stale, bounded +1 reinforcement, no automatic cross-session reuse, exact panel provenance/manifests)
 - Independence rule: no panel member sees other panel outputs before Mode 2 completes
 
 ## Proposed architecture
@@ -93,7 +93,7 @@ brief
 ## Persistence and idempotency
 
 - Persist every stage transition and every `PanelResult` under the session path (and optional run journal).
-- Idempotency key = `run_id` + `stage` + `model_id` (plus attempt policy). Replaying a stage must not duplicate artifacts; retries overwrite or write `panel/<model>.attempt-N.md` then promote on success.
+- Idempotency key = `run_id` + `stage` + `model_id` (plus attempt policy). Replaying a stage must not duplicate artifacts. Resume skips a seat only when the existing output has **exact matching provenance** (same semantics as Phase 1 `--resume`; non-empty alone is not enough). Retries write `panel/<label>.attempt-N.md` then promote on success.
 - Session Markdown remains the source of truth for human inspection; any DB/object store is a cache, not a second semantic model.
 - Keep artifact filenames file-compatible with Phase 1 so local and API runs can interoperate.
 
@@ -135,7 +135,7 @@ API mode may automate the curation prompt; it must not auto-merge contradictions
 - A full run produces the same artifact tree and names as Phase 1.
 - Independent panel stage never leaks sibling outputs into another model's prompt.
 - Degraded runs record which models failed and still produce an honest synthesis.
-- Ledger curation obeys weight, contradiction, evaporation, and +1 caps.
+- Ledger curation obeys quality weights, contradiction links, `review-by`/stale, +1 caps, and no automatic cross-session reuse.
 - No API keys appear in session files or git.
 - Toolkit prompts remain the rendered source text (no forked prompt dialect).
 

@@ -1,13 +1,17 @@
 # Synthesis — `{YYYY-MM-DD-slug}`
 
-Do not soften. Do not hide panel failures. Do not treat the composite score as evidence — it is a ranking aid only.
+**Converging — cold evaluation.** Judgement is on. A confident KILL is a successful session. Do not soften. Do not hide panel failures. Do not treat the composite score as evidence — it is a ranking aid only.
+
+Inputs: the blends in `03-cross-pollination.md` plus **initial** model outputs listed in `panel/outputs.manifest` **and** Cursor/Codex red-team outputs listed in `panel/adversarial/outputs.manifest`. Do not treat `panel/README.md`, `prompts/`, or raw `cursor-agent.sh` output as seat evidence. If a manifest is missing, say so — do not glob.
+
+Ask for **conclusions, evidence, assumptions, uncertainty, counterarguments, concise rationale.** Do not request hidden chain-of-thought.
 
 ## Evidence state
 
 - Panel members attempted: `{list model ids}`
-- Panel members succeeded: `{list}`
-- Panel members failed: `{list + failure file paths}`
-- Adversarial artifacts present: `{yes/no + paths}`
+- Panel members succeeded (in `panel/outputs.manifest`): `{list}`
+- Panel members failed / missing: `{list}`
+- Adversarial artifacts present (`panel/adversarial/outputs.manifest`): `{yes/no + paths}`
 - Material gaps that bound confidence: `{gaps}`
 
 ## Scoring method
@@ -21,38 +25,38 @@ Do not soften. Do not hide panel failures. Do not treat the composite score as e
 
 | ID | Candidate | Novelty (1–5) | Feasibility (1–5) | Fit (1–5) | Composite | Evidence confidence | Biggest risk |
 |---|---|---|---|---|---|---|---|
-| C1' | {candidate} | {n} | {n} | {n} | {n} | `{low\|medium\|high}` | {risk} |
-| C2' | {candidate} | {n} | {n} | {n} | {n} | `{low\|medium\|high}` | {risk} |
-| C3' | {candidate} | {n} | {n} | {n} | {n} | `{low\|medium\|high}` | {risk} |
+| C1 | {candidate} | {n} | {n} | {n} | {n} | `{low\|medium\|high}` | {risk} |
 
 ## Top candidates
 
 1. **{candidate}** — composite `{n}`; evidence confidence `{low|medium|high}`. Why it leads: {reason}. Killer risk: {risk}.
-2. **{candidate}** — composite `{n}`; evidence confidence `{low|medium|high}`. Why second: {reason}.
-3. **{candidate}** — composite `{n}`; evidence confidence `{low|medium|high}`. Why third: {reason}.
+2. **{candidate}**
+3. **{candidate}**
 
-## Final red team of number one
+## Front-runner red team
 
-- Strongest attack: {attack}
-- What would falsify it cheaply: {falsifier}
-- What the panel already knew and ignored: {ignored signal}
+Idea: {#1}
+
+- Strongest arguments against:
+- Shakiest hidden assumption:
+- What would falsify it cheaply:
+- Scenario where it fails badly:
+- Redesign that would survive each objection (or why it can't):
 - Residual belief after attack: {still standing / wounded / dead}
+
+## Codex / Cursor adversarial notes
+
+- Codex: {path of `/codex:adversarial-review` **with** documented provenance, listed in `panel/adversarial/outputs.manifest`}
+- Cursor red-team: {paths from `panel/adversarial/outputs.manifest`}
 
 ## Verdict
 
-`{KILL|PIVOT|VALIDATE}`
+**KILL / PIVOT / VALIDATE**
 
 - Rationale: {direct rationale; no flattery}
-- If PIVOT: pivot to `{what}` because `{why}`
-- If VALIDATE: what is being validated is `{precise claim}`, not the whole pitch
-- If KILL: do not resurrect without new primary evidence
-
-## Cheapest decisive next test
-
-- Test: {smallest experiment or check that could kill or upgrade confidence}
-- Cost/effort bound: {bound}
-- Success / fail signals: {signals}
-- Owner / when: `{owner}` / `{when}`
+- If PIVOT: the pivot **and** the assumption that forced it
+- If VALIDATE: the **single cheapest next test** that moves this from "maybe" to yes/no — ideally this week — plus success/fail signals
+- If KILL: what evidence would have to change for this to be worth reopening. Do not reopen inside this session.
 
 ## Unresolved contradictions
 
@@ -60,10 +64,11 @@ Do not soften. Do not hide panel failures. Do not treat the composite score as e
 |---|---|---|---|
 | {contradiction} | {refs} | {why} | {yes/no} |
 
-## Ledger deposits
+## Ledger updates made
 
-Curated deposits only — not raw panel prose. List intended `L-{YYYYMMDD}-{NN}` entries and whether they are active or contested.
+Curated deposits only — not raw panel prose. Use this session's `L-001` schema.
 
-| Proposed ID | Type | Weight | Claim (short) | Contested? |
-|---|---|---|---|---|
-| `L-{YYYYMMDD}-{NN}` | `{working\|episodic\|semantic\|procedural}` | `{1–5}` | {claim} | `{yes/no}` |
+- New IDs:
+- Contradictions linked:
+- `review-by` dates set:
+- Quality / type / independence notes:
