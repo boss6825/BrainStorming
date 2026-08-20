@@ -167,7 +167,7 @@ would have. Then tell me which lens produced the most surprising usable idea and
 
 **Phase 1 — Diverge (orchestrator, judgement OFF).** Write `01-deep-research.md` if needed, then `02-divergent-seeds.md` using the diversity rules in [`07`](07-multi-model-panel.md) (unique mechanisms, weirder tail).
 
-**Phase 2 — Deep-dive (parallel panel, still judgement OFF).** Assign clashing seats ([`07` §3](07-multi-model-panel.md#3-assigning-seats)). Materialize **read-only** prompts under `prompts/` ([`07` §4](07-multi-model-panel.md#4-read-only-panel-prompt)) — one `seat-*.md` per distinct persona. Fan out:
+**Phase 2 — Deep-dive (parallel panel, still judgement OFF).** Assign clashing seats ([`07` §2](07-multi-model-panel.md#2-default-roles)). Materialize **read-only** prompts under `prompts/` ([`07` §3](07-multi-model-panel.md#3-independent-deep-dive-prompt)) — one `seat-*.md` per distinct persona. Fan out:
 
 ```
 ./scripts/cursor-panel.sh --seat {id} council/{slug}/prompts/seat-a.md \
@@ -177,13 +177,26 @@ would have. Then tell me which lens produced the most surprising usable idea and
 
 Launch Codex in the same operator turn when concurrent tools are available; otherwise serialize and say so. Save `panel/codex-<slug>.md` with the documented provenance header (`council/_template/panel/README.md`) and only then append it to `panel/outputs.manifest`. A raw plugin dump is not provenance-complete. `git status` after. Unexpected diffs → stop and restore.
 
-**Phase 3 — Cross-pollinate (orchestrator).** [`07` §5](07-multi-model-panel.md#5-cross-pollination-merge) → `03-cross-pollination.md`. Read **only** files in `panel/outputs.manifest` (not `panel/README.md`, `prompts/`, or `panel/adversarial/`). If the manifest is missing, stop — do not glob. Blend across files; keep contradictions.
+**Phase 3 — Cross-pollinate (orchestrator).** [`07` §4](07-multi-model-panel.md#4-cross-pollination-prompt) → `03-cross-pollination.md`. Read **only** files in `panel/outputs.manifest` (not `panel/README.md`, `prompts/`, or `panel/adversarial/`). If the manifest is missing, stop — do not glob. Blend across files; keep contradictions.
 
-**Phase 4 — Adversarial.** `/codex:adversarial-review` (save under `panel/adversarial/` with the documented provenance header, then list its basename in `panel/adversarial/outputs.manifest`) + Cursor devil's advocate via `cursor-panel.sh --seat` into that same dedicated directory ([`07` §6](07-multi-model-panel.md#6-adversarial-pass)), launched together when tools can run concurrently. Keep the initial `panel/outputs.manifest` unchanged. Do not use `cursor-agent.sh` raw output as panel evidence. Read-only; git-status before/after.
+**Phase 4 — Adversarial.** `/codex:adversarial-review` (save under `panel/adversarial/` with the documented provenance header, then list its basename in `panel/adversarial/outputs.manifest`) + Cursor devil's advocate via `cursor-panel.sh --seat` into that same dedicated directory ([`07` §5](07-multi-model-panel.md#5-adversarial-prompts)), launched together when tools can run concurrently. Keep the initial `panel/outputs.manifest` unchanged. Do not use `cursor-agent.sh` raw output as panel evidence. Read-only; git-status before/after.
 
-**Phase 5 — Converge (judgement ON).** [`07` §7](07-multi-model-panel.md#7-convergence) → `04-synthesis.md` (KILL / PIVOT / VALIDATE + cheapest test). Consume `panel/outputs.manifest` **and** `panel/adversarial/outputs.manifest`. Curator updates `LEDGER.md` ([`07` §8](07-multi-model-panel.md#8-ledger-governance)): quality-weighted, compact, no panel dumps, no majority vote, no automatic cross-session reuse.
+**Phase 5 — Converge (judgement ON).** [`07` §6](07-multi-model-panel.md#6-convergence-prompt) → `04-synthesis.md` (KILL / PIVOT / VALIDATE + cheapest test). Consume `panel/outputs.manifest` **and** `panel/adversarial/outputs.manifest`. Curator updates `LEDGER.md` ([`07` §7](07-multi-model-panel.md#7-governed-ledger)): quality-weighted, compact, no panel dumps, no majority vote, no automatic cross-session reuse.
 
 Ask every seat for **conclusions, evidence, assumptions, uncertainty, counterarguments, and a concise rationale** — never hidden chain-of-thought.
+
+**Invocation brief** (fill, then hand to `/council` or drive the phases manually):
+```
+Run a COUNCIL session on: {question}.
+Goal/decision: {goal}.
+Hard constraints: {constraints}.
+Angles already tried or ruled out: {angles}.
+Evidence that should kill the idea: {kill criteria}.
+Use actual Cursor model IDs discovered locally. Keep every deep dive independent,
+cross-pollinate before judging, then return KILL, PIVOT, or VALIDATE.
+```
+
+Requires **local** Claude Code with Cursor Agent and the Codex plugin. If the toolchain is unavailable (cloud/web mode, missing `cursor-agent` / `codex`), **stop** — do not replace missing models with same-model role-play. Cloud/web may scaffold the session folder and prompts only.
 
 ---
 
@@ -192,5 +205,8 @@ Ask every seat for **conclusions, evidence, assumptions, uncertainty, counterarg
 - **Whole arc:** Recipe 3 (find whitespace) → Recipe 1 (ideate into it) → Recipe 2 (kill/validate the winner). That's discovery → generation → judgement end to end.
 - **When you're stuck mid-run:** drop in Recipe 4 (lens sweep) or the "Combine two unrelated things" greatest-hit to break the plateau.
 - **When one model is the bottleneck:** Recipe 5 (Council) after Recipe 1 or 3, then Recipe 2 on the winner. Cross-pollination is not a substitute for a kill check.
+- **Recipe 3 → Recipe 5:** Research-a-Space can frame seed research / domain map before a Council Multi-Model Run.
+- **Recipe 5 → Recipe 2:** After Council synthesis, Kill-the-Idea can add an extra validation pass on the survivor.
+- **Recipe 5** remains standalone and is normally run through `/council` (local panel seats).
 
 **A note on honesty in convergence.** The model will drift toward encouragement — it's trained to be agreeable. In every converge phase, explicitly demand bluntness ("do not soften to be nice"), and treat a confident KILL as a successful session, not a failed one.

@@ -9,6 +9,14 @@ Prompts do **not** live here. Session prompt artifacts are under `../prompts/`.
 
 Cursor red-team (Mode 4) does **not** land here. It uses [`adversarial/`](adversarial/README.md) with its own `outputs.manifest` via `cursor-panel.sh --seat`.
 
+## Independence rule
+
+- Members must **not** see other panel answers before writing their own file.
+- `"I agree with the others"` / consensus language is invalid and should be rejected on intake.
+- Separate **facts**, **inference**, and **speculation**. Label unverified claims.
+- Orchestrator may fan out in parallel; independence is about content, not wall-clock.
+- Do not invent substitute answers from the orchestrator to "fill the seat."
+
 ## What to read later
 
 `outputs.manifest` is the **authoritative** list of seat artifacts in *this* directory. Cross-pollination (`03-cross-pollination.md`) consumes **only** this initial manifest. Synthesis (`04-synthesis.md`) consumes this manifest **and** `adversarial/outputs.manifest`.
@@ -24,9 +32,14 @@ Cursor red-team (Mode 4) does **not** land here. It uses [`adversarial/`](advers
 
 ## Rules
 
-- **Immutable.** Do not edit a panel file in place after it lands. If a run is bad, keep it and run again into a new filename or a new session — or `--overwrite` only when the operator explicitly intends to replace that seat.
+- **Immutable.** Do not edit a panel file in place after it lands. If a run is bad, keep notes in synthesis and retry into a missing seat (`--resume`) or `--overwrite` only when the operator explicitly intends to replace that seat.
+- **Success-only publication.** A nonzero or empty Cursor child is **not** published as a seat file. Record the failure in `00-brief.md` / `04-synthesis.md` evidence state. Do not delete successful siblings.
 - **Provenance is exact.** The `Model (exact)` field is the id passed to `cursor-agent --model`. Labels in filenames are a filesystem-safe normalization of that id (`google/gemini-x` → `google-gemini-x.md`). `--resume` skips a seat only when this file's header has an **exact** matching `| Model (exact) | \`id\` |` line for the requested model. A non-empty regular file that lacks or mismatches that line is refused (not skipped, not overwritten). Empty regular files are rerun. `foo/bar` and `foo-bar` are different ids even when they share a filename.
 - **Not the ledger.** Do not copy these bodies into `LEDGER.md`. Cite the path (`panel/<label>.md`) and extract a compact, quality-weighted claim.
+
+## Expected response structure
+
+Successful independent deep dives should follow toolkit `07` headings (`Assigned role and lens`, `Reframing`, `Seed-by-seed observations`, `Deepened candidates`, `One new candidate`, `Facts and evidence`, `Assumptions and uncertainties`, `Contradictions`, `Handoff building blocks`). Empty sections must say what is missing.
 
 ## Codex / plugin provenance
 
@@ -47,13 +60,15 @@ Raw model output follows. This file is immutable session evidence; do not edit i
 ---
 ```
 
+Initial Codex review is listed in **this** directory's manifest. Codex `/codex:adversarial-review` is listed in `adversarial/outputs.manifest`.
+
 ## `--force` reminder
 
 Cursor invocations use `--force`. Prompts for files in this folder must be **read-only**. Check `git status` before and after the fan-out. See the [Council README](../../README.md).
 
 ## Expected files
 
-After a panel pass you should see `outputs.manifest` plus one markdown file per seat, for example:
+After a panel pass you should see `outputs.manifest` plus one markdown file per **successful** seat, for example:
 
 - `grok.md`
 - `gpt-5.md` *(example label only — use ids from `cursor-agent --list-models`)*

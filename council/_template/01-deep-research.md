@@ -1,35 +1,64 @@
-# Deep research — {YYYY-MM-DD-slug}
+# Deep research — `{YYYY-MM-DD-slug}`
 
-Opus seed document. This is **one** researcher's map so the panel has something to push against — not the verdict.
+Orchestrator seed research only. Not a panel output. Do not present unsupported model recall as fact. Do not load prior ledgers wholesale. Do not rank or kill ideas here — that happens later.
 
 Ask for **conclusions, evidence, assumptions, uncertainty, counterarguments, and a concise rationale.** Do not request hidden chain-of-thought or internal scratchpads.
 
-## Map of what exists
+## Research questions
 
-{Players, current solutions, "what's on the table." Flag guesses.}
+- {research question}
+- {research question}
+- {research question}
 
-## Evidence
+## Established facts
 
-| Claim | Evidence | Confidence | How to verify |
+| Claim | Evidence/source | Confidence | Relevance |
 |---|---|---|---|
-| | | low / medium / high | |
+| {claim} | {source or citation} | {high/medium/low} | {why it matters to the brief} |
+| {claim} | {source or citation} | {high/medium/low} | {why it matters to the brief} |
 
-## Assumptions
+## Uncertain or time-sensitive claims
+
+| Claim | Why uncertain / what would resolve it | Confidence | Relevance |
+|---|---|---|---|
+| {claim} | {gap, date sensitivity, or missing primary source} | {low/medium} | {why it matters} |
+| {claim} | {gap, date sensitivity, or missing primary source} | {low/medium} | {why it matters} |
+
+## Named assumptions
 
 - {named, not buried}
 
-## Uncertainties
+## Existing approaches and conventional framing
 
-- {what is unknown and why it matters}
+- {dominant framing in the space}
+- {common solution pattern and its failure mode}
+- {competitor / prior art pattern — descriptive, not ranked}
 
-## Counterarguments / kill shots already visible
+## Gaps, contradictions, and obvious invalidators
 
-- {do not wait for the adversarial pass to notice the obvious}
+- {gap between claimed consensus and evidence}
+- {contradiction between sources A and B}
+- {question the conventional framing refuses to ask}
+- {kill shot already visible — do not wait for the adversarial pass}
 
 ## Concise rationale
 
 {Why this framing of the space, in a short paragraph.}
 
-## Seeds this research suggests (pointers only)
+## Relevant prior-ledger traces
 
-List candidates here as one-liners; the full diverse set belongs in `02-divergent-seeds.md`.
+Pull only specific, non-stale ledger IDs that bear on this brief. Do not dump prior sessions. Use the ID format from this session's `LEDGER.md` (that schema is still a merge decision).
+
+- `{id}` — {one-line relevance}; status `{status}`
+- `{id}` — {one-line relevance}; status `{status}`
+
+If none: `None relevant / none non-stale.`
+
+## Building blocks handed to divergence
+
+Concrete fragments divergence may recombine. Not ranked. Not killed.
+
+- {building block: mechanism, constraint, observation, or open question}
+- {building block}
+- {building block}
+- {building block}

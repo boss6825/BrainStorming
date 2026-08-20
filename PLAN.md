@@ -8,7 +8,6 @@
 
 The sections below are the original design spec. Where scaffolding is described as "what gets created," those paths now exist (see `AGENTS.md`).
 
-
 ## Context — what this is and why
 
 You want this repo to be a **thinking system**, not just a notes folder. The method mirrors how humans actually discover things: one researcher goes deep, another goes deep from a different angle, and the breakthrough comes from **cross-pollinating** their findings. LLMs don't do this on their own — a single model collapses to the "average" answer (the Wharton *diversity trap* your `creative-thinking-toolkit` is already built around).
@@ -34,7 +33,7 @@ So the system mechanizes divergence with **real heterogeneous models**: Claude O
 You drive these ad-hoc; `/council` orchestrates each and writes to a session folder.
 
 1. **Diverge** — Opus generates a deliberately *wide, diverse* seed set (using the toolkit's anti-clustering levers) → `02-divergent-seeds.md`.
-2. **Deep-dive (the panel)** — each seed/question fans out to multiple models **in parallel** via Cursor + Codex; each model researches from its own priors/persona → `panel/<model>.md`. Launch Codex and Cursor seats in the same operator turn when tool execution supports concurrency. This is the brain-like parallel deepening + the time saver.
+2. **Deep-dive (the panel)** — each seed/question fans out to multiple models **in parallel** via Cursor + Codex; each model researches from its own priors/persona → `panel/<label>.md`. Launch Codex and Cursor seats in the same operator turn when tool execution supports concurrency. This is the brain-like parallel deepening + the time saver.
 3. **Cross-pollinate** — Opus reads all panel outputs and combines ideas *across* models using Conceptual Blending & Bisociation (toolkit `03`) → `03-cross-pollination.md`. This is the human-style recombination you emphasized.
 4. **Adversarial** — `/codex:adversarial-review` + a Cursor red-team pass (`cursor-panel.sh --seat` into `panel/adversarial/`) pressure-tests the front-runners.
 5. **Converge** — Opus scores (novelty × feasibility × fit), red-teams #1, writes an honest verdict (incl. KILL) → `04-synthesis.md`, updates the ledger.
@@ -52,12 +51,12 @@ You drive these ad-hoc; `/council` orchestrates each and writes to a session fol
 
 **Scripts** (`scripts/`)
 - `cursor-agent.sh` — single-model wrapper: `cursor-agent -p "<prompt>" --model <m> --output-format text --force`, prompt from file/stdin, writes to `--out`.
-- `cursor-panel.sh` — launches requested models **in parallel** (background + `wait`). Repeatable `--model` shares one prompt; repeatable `--seat MODEL PROMPT_FILE` gives per-seat prompts; forms may be combined. Collects each into `panel/<model>.md` with exact provenance and writes `outputs.manifest` as an authoritative merge (prior retainable entries plus this run; Codex artifacts survive; stale/unsafe paths dropped). `--resume` skips only on exact matching `| Model (exact) |` provenance.
+- `cursor-panel.sh` — launches requested models **in parallel** (background + `wait`). Repeatable `--model` shares one prompt; repeatable `--seat MODEL PROMPT_FILE` gives per-seat prompts; forms may be combined. Collects each into `panel/<label>.md` with exact provenance and writes `outputs.manifest` as an authoritative merge (prior retainable entries plus this run; Codex artifacts survive; stale/unsafe paths dropped). `--resume` skips only on exact matching `| Model (exact) |` provenance.
 
 **Config**
 - `.claude/settings.json` (checked in) — permission allow-rules for the wrappers plus exact `cursor-agent --list-models` / `--version` and `codex --version`. No unrestricted `cursor-agent:*` or `codex:*` wildcards.
 - `AGENTS.md` (repo root) — the "critical thinker" system prompt Cursor/Codex models pick up: present your reasoning, disagree, flag what's wrong, don't flatter.
-- `.codex/config.toml` — optional Codex default model/effort.
+- `.codex/config.toml` — Codex reasoning effort only; inherit the local/plugin model id.
 
 **Docs**
 - Rewrite `README.md` into a small, scannable **user manual**: what the repo is, the pipeline, a tools table (Opus, `/ideate`, `/council`, toolkit, Codex plugin, Cursor bridge), one-time local setup, how to run a session, and the cloud-mode note.
@@ -73,4 +72,4 @@ Builds directly on `04-llm-divergence-techniques.md` (PanelGPT / Tree-of-Thought
 - Locally (you): run `/council-setup`; run one tiny session end-to-end on a throwaway idea to confirm the panel fans out and files land.
 
 ## Git
-Phase 1 scaffolding is in-tree on whatever branch the operator is using. Commit in logical chunks when asked. No PR unless asked.
+Phase 1 scaffolding is in-tree on whatever branch the operator is using. Commit in logical chunks when asked.

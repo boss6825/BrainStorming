@@ -1,88 +1,116 @@
 ---
 name: council-setup
 description: >-
-  Verify local Council prerequisites: Codex CLI/plugin and Cursor CLI
-  (cursor-agent) installed, on PATH, and authenticated. Use WHENEVER the user
-  asks if Council/Cursor/Codex will work, before the first panel run, or when
-  a fan-out fails with missing-binary errors. Mirrors a local /codex:setup
-  check. Cannot install or log in from Claude Code cloud/web mode.
+  Check whether the local machine is ready to run Council by verifying the
+  cursor-agent and codex executables, Cursor model discovery/authentication,
+  availability of the Codex plugin skills, and that this repo's Cursor wrappers
+  are executable. Reports exact remediation without pretending Claude Code cloud
+  can execute the panel.
 ---
 
-# Council setup — local checker
+# Council setup
 
-Phase 1 Council **runs on the operator's desktop** (local Claude Code / terminal). Codex plugin and `cursor-agent` cannot run in Claude Code cloud or web mode. This skill only **verifies**. It does not `/plugin install`, `cursor login`, or pretend those succeeded from cloud.
+Preflight checker for local Council sessions. Run this before `/council` does any
+external Cursor or Codex work. Report facts and remediation — do not start
+interactive login automatically, do not invent install/login flags, and do not
+claim readiness in cloud/web.
 
-## What "ready" means
+## Environment boundary
 
-| Tool | Ready when |
-|---|---|
-| Cursor CLI | `cursor-agent` on PATH, authenticated, `cursor-agent --list-models` prints ids |
-| Codex CLI / plugin | `codex` on PATH (and/or Codex plugin commands like `/codex:review` available in local Claude Code), authenticated |
+If this session is Claude Code **cloud/web**:
 
-This repo does **not** pin a Codex model id. `.codex/config.toml` sets `model_reasoning_effort` only and inherits the local default model.
+1. State that Council panel execution is **local-only**.
+2. Do **not** claim the machine is ready to fan out.
+3. Still list what would be checked locally, then stop.
 
-## Checks to run (report each pass/fail)
+Do not pretend Opus can stand in for Cursor or Codex.
 
-Run these in the repo root. Quote paths. Do not `eval`.
+## Cursor checks
 
-1. **Cursor binary**
-
-   ```bash
-   command -v cursor-agent
-   ```
-
-   If missing: tell the user to install Cursor CLI / `cursor-agent` on the machine that will run the panel, then authenticate (`cursor login` or the current Cursor CLI login flow). Do not invent install flags.
-
-2. **Cursor auth + model list**
-
-   ```bash
-   cursor-agent --list-models
-   ```
-
-   Success: a list of ids. Failure: report stderr and stop calling the wrappers. **Never invent a model id** to skip this step.
-
-3. **Codex binary**
-
-   ```bash
-   command -v codex
-   ```
-
-   If missing: local Codex CLI install + login. Plugin-only users may still have `/codex:review` inside local Claude Code without a global `codex` — say so if `command -v` fails but the user confirms the plugin works.
-
-4. **Codex auth / version** (whichever works on this install; do not invent subcommands)
-
-   ```bash
-   codex --version
-   ```
-
-   If a login-status command exists on their CLI, run that too. If it errors, report the error rather than guessing.
-
-5. **Repo wrappers**
-
-   ```bash
-   test -x scripts/cursor-agent.sh && test -x scripts/cursor-panel.sh
-   bash -n scripts/cursor-common.sh && bash -n scripts/cursor-agent.sh && bash -n scripts/cursor-panel.sh
-   ```
-
-6. **Config files present**
-
-   - `.codex/config.toml` — effort only, no invented model id
-   - `.claude/settings.json` — wrapper allow-rules plus exact `cursor-agent --list-models` / `--version` and `codex --version` (no unrestricted `cursor-agent:*` / `codex:*` wildcards)
-
-## What you cannot do from cloud
-
-- Install CLIs, complete logins, or run a live panel
-- `/plugin install openai/codex-plugin-cc`
-- Claim a model is available without `--list-models`
-
-If you are in cloud mode, print this checklist as **homework** for local Claude Code and still prepare `council/YYYY-MM-DD-slug/` from `_template/` if the user wants.
-
-## After a pass
-
-Tell the user they can `/council` or:
+Run in order:
 
 ```bash
-./scripts/cursor-panel.sh --seat <id> <prompts/seat-a.md> --seat <id> <prompts/seat-b.md> --out-dir council/<session>/panel
+command -v cursor-agent
+cursor-agent --version
+cursor-agent --list-models
 ```
 
-Remind them: read-only prompts, `git status` before and after `--force`.
+Behavior:
+
+1. `command -v cursor-agent` failure → **missing**. Action: install Cursor Agent /
+   CLI per Cursor's official docs.
+2. `--version` only proves the binary runs — **never** infer authentication from it.
+3. `cursor-agent --list-models` success with a **non-empty** list → Cursor is
+   installed **and** authenticated/usable for discovery.
+4. If `--list-models` fails (or returns empty): report **installed but not
+   authenticated/usable**. Point the operator to Cursor Agent's **official sign-in**
+   flow. Do **not** invent a `cursor-agent login` command.
+5. **Never invent a model id** to skip discovery.
+
+## Codex checks
+
+```bash
+command -v codex
+codex --version
+codex login status
+```
+
+Behavior:
+
+1. `command -v codex` failure → **missing**. Action: install the Codex CLI.
+2. `--version` ≠ authenticated.
+3. Run `codex login status` if the local CLI supports it.
+4. If unauthenticated → instruct `codex login` (do not run it for them).
+5. If `login status` is unsupported/unknown → report
+   `installed; authentication unverified` (not missing). Instruct `codex login`
+   or the plugin's `/codex:setup`.
+6. Plugin-only users may still have `/codex:review` in local Claude Code without
+   a global `codex` — say so if `command -v` fails but the user confirms the
+   plugin works.
+
+## Plugin checks
+
+Verify the host exposes these Codex plugin skills (invoke/list as the host allows;
+do not invent flags):
+
+- `/codex:review`
+- `/codex:adversarial-review`
+- `/codex:rescue`
+
+If any are missing, say so and point to Codex plugin install / `/codex:setup`.
+Do not invent CLI substitutes for those skills.
+
+## Repo wrappers and config
+
+Run in the repo root. Quote paths. Do not `eval`.
+
+```bash
+test -x scripts/cursor-agent.sh && test -x scripts/cursor-panel.sh
+bash -n scripts/cursor-agent.sh && bash -n scripts/cursor-panel.sh
+test -f .codex/config.toml && test -f .claude/settings.json
+```
+
+If `scripts/cursor-common.sh` exists, also run `bash -n scripts/cursor-common.sh`.
+Report missing or non-executable wrappers and missing config files. Do not
+invent permission-allow syntax or a Codex model pin here; those files still
+need a human merge if they conflict.
+
+## Report
+
+Print a compact table and stop:
+
+| Component | Installed | Authenticated/usable | Action |
+|---|---|---|---|
+| cursor-agent | yes/no | yes/no (from `--list-models`) | … |
+| Codex CLI | yes/no | yes / no / unverified | … |
+| `/codex:review` | yes/no | n/a | … |
+| `/codex:adversarial-review` | yes/no | n/a | … |
+| `/codex:rescue` | yes/no | n/a | … |
+| repo wrappers | yes/no | n/a | … |
+
+Ready for `/council` only when Cursor discovery works, Codex is authenticated (or
+explicitly verified via plugin setup), the three plugin skills are present, and
+the repo wrappers exist — and only on a **local** host.
+
+Remind the operator: Council panel prompts must stay read-only, and `--force`
+requires `git status` before and after.

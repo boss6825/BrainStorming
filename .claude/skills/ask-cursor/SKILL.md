@@ -105,4 +105,4 @@ Delegate to toolkit `07`. Minimum contract:
 
 ## Cloud mode
 
-If `cursor-agent` is missing, do not fake a Cursor result. Write the prompt file and tell the user to run the script locally.
+If `cursor-agent` is missing, do not fake a Cursor result. Write the prompt file and tell the user to run the script locally. One Cursor model role-playing several experts is **not** heterogeneous fan-out. Omit any family whose ID was not returned by `--list-models`. Do not have Opus fill in for a missing Cursor model.

@@ -1,209 +1,381 @@
-# 07 · Multi-Model Panel (Council)
+# 07 · Multi-Model Council
 
-Real heterogeneous models, not a costume change inside one LLM. Toolkit [`04`](04-llm-divergence-techniques.md) shows how to *simulate* a panel (PanelGPT, persona rotation, Tree-of-Thoughts). This file is what you run when you actually have **Claude + Codex + Cursor CLI** (Grok, GPT, Gemini, Composer, …) and you want them to disagree long enough to be useful.
-
-Operator: `/council` (`.claude/skills/council/`). Cursor mechanics: `/ask-cursor`. Session files: `council/_template/`. Phase 2 API product is **not** this file — see `docs/ROADMAP-api-mode.md`.
-
-> **The diversity trap still applies.** Five vendors given the same generic prompt will still cluster. Different weights help; they do not replace no-repeat rules, specific personas, and cross-domain forcing. **Majority vote makes it worse** — the fluent center gets three votes.
+Council uses genuinely heterogeneous model calls to widen the idea distribution,
+then deliberately cross-pollinates their independent findings before judgement
+begins. A panel is not a majority vote and not several models averaging toward
+the same generic answer.
 
 **Contents**
-1. [Why a real panel](#1-why-a-real-panel) · 2. [The five modes](#2-the-five-modes) · 3. [Assigning seats](#3-assigning-seats) · 4. [Read-only panel prompt](#4-read-only-panel-prompt) · 5. [Cross-pollination merge](#5-cross-pollination-merge) · 6. [Adversarial pass](#6-adversarial-pass) · 7. [Convergence](#7-convergence) · 8. [Ledger governance](#8-ledger-governance) · 9. [`--force` and git](#9---force-and-git) · 10. [What not to do](#10-what-not-to-do)
+1. [Why a heterogeneous panel](#1-why-a-heterogeneous-panel) · 2. [Default roles](#2-default-roles) · 3. [Independent deep-dive prompt](#3-independent-deep-dive-prompt) · 4. [Cross-pollination prompt](#4-cross-pollination-prompt) · 5. [Adversarial prompts](#5-adversarial-prompts) · 6. [Convergence prompt](#6-convergence-prompt) · 7. [Governed ledger](#7-governed-ledger) · 8. [Operating sequence](#8-operating-sequence)
 
 ---
 
-## 1. Why a real panel
+## 1. Why a heterogeneous panel
 
-A single model (even with PanelGPT) samples one prior. Cross-pollination as humans do it needs **independent deep-dives** that can be wrong in *different* ways, then a deliberate blend (toolkit [`03`](03-combinatorial-creativity.md) — Conceptual Blending, Bisociation). Council is that loop with files on disk so nothing has to be held in one context window.
+Wharton's 2023–24 research found LLM brainstorms are **high-quality but low-diversity**: fluent ideas that cluster near the center of what the model has seen. Simulated panels inside one model (persona rotation, PanelGPT-style role-play) help a little, but they still share one prior, one training mixture, and one collapse toward the generic answer.
 
-Prompts here stay portable: the same text can be pasted into a chat, passed to `scripts/cursor-panel.sh`, or (later) sent to an API. Do not bake in vendor-only tool calls.
+Council fights that trap with **real heterogeneous models** — different providers, different training data, different failure modes — each deepening the same brief **independently**. Only after those independent outputs exist does the orchestrator recombine them (Conceptual Blending & Bisociation from [03](03-combinatorial-creativity.md)). Disagreement is evidence of coverage, not something to vote away. A panel is not a majority vote and not averaging toward consensus.
 
-## 2. The five modes
+This file holds the paste-ready prompts. The operator skill is `/council` (local Claude Code). `/ideate` Recipe 5 routes here; it does not simulate missing models.
 
-Keep them separate. Label which one you are in.
+---
 
-1. **Diverge** — Opus (or the orchestrator) writes a wide seed set (`02-divergent-seeds.md`).
-2. **Deep-dive** — each seat researches from its prior (`panel/<label>.md`), in parallel. Cursor seats via `cursor-panel.sh` (`--seat` when personas differ). Launch the Codex seat in the same operator turn when concurrent tools are available; otherwise serialize and say so. Codex plugin output needs the documented provenance header before it is listed in `panel/outputs.manifest`.
-3. **Cross-pollinate** — blend *across* seats (`03-cross-pollination.md`). Read **only** `panel/outputs.manifest` (the initial panel). Do not glob; do not read `panel/adversarial/` yet.
-4. **Adversarial** — Codex adversarial review + a Cursor red-team pass. Cursor red-team uses `cursor-panel.sh --seat` into `panel/adversarial/` (own `outputs.manifest`). Do not use `cursor-agent.sh` raw output as panel evidence.
-5. **Converge** — score, red-team #1, verdict including KILL (`04-synthesis.md` + curator `LEDGER.md`). Consume `panel/outputs.manifest` **and** `panel/adversarial/outputs.manifest`.
+## 2. Default roles
 
-## 3. Assigning seats
+| Family | Role | Lens |
+|---|---|---|
+| Claude Opus | Seed researcher and orchestrator | Idea Cascade during divergence; blending during recombination; cold critic during convergence |
+| Grok | Contrarian field investigator tracing incentives and forbidden assumptions | Assumption Breaker + Literalist |
+| GPT | Reliability/systems architect with product-economics discipline | Systemizer + Bottom-Up Builder |
+| Gemini | Comparative researcher spanning ecology, anthropology, and HCI | Pattern Transfer + Synesthetic Translation |
+| Composer | Prototype-obsessed product mechanic seeking the smallest real experiment | Deep-Tunnel + Random Provocation |
+| Codex | Forensic research methodologist and evidence auditor | Bottom-Up Builder |
 
-Specific personas beat "an expert." Rotate **clashing** modes from [`02`](02-neurodivergent-thinking-modes.md) and [`04`](04-llm-divergence-techniques.md). Framing: **cognitive-style-inspired thinking modes, not clinical claims, diagnoses, or stereotypes**, and no mode simulates a real person.
+Roles are deliberate assignments for this pipeline, **not** claims about model personality, and **not** clinical or stereotyped simulations of a real person. Lenses are cognitive-style-inspired thinking modes from [02](02-neurodivergent-thinking-modes.md).
 
-```
-Assign Council seats for: {challenge}
-Constraints: {constraints}
-Available Cursor model ids (from `cursor-agent --list-models` only): {ids}
-Codex: use the local default model; do not invent an id.
+---
 
-Pick 3–5 seats. For each:
-- exact model id (or "codex-default")
-- a specific persona (domain + bias, not a celebrity)
-- one toolkit-02 or toolkit-04 mode that does not repeat across seats
-- which seeds (S-xx) it owns or whether it sees the full set
+## 3. Independent deep-dive prompt
 
-Refuse generic seats ("the engineer", "the expert"). Name the disagreement you
-expect between seats. Do not majority-weight later just because more seats
-share a vendor.
-```
+Fill placeholders, then send **one copy per model** with that model's runtime ID, role, and lens. Models must not see each other's answers before this stage finishes.
 
-## 4. Read-only panel prompt
+For Codex: set `runtime_model_id` to the **exact local Codex model id** (do not invent one), apply the Codex role/lens, invoke through `/codex:review`, wrap the returned text with the documented provenance header from `council/_template/panel/README.md`, save as `panel/codex-<slug>.md`, then list that basename in `panel/outputs.manifest`. A raw plugin dump is not provenance-complete.
 
-Use this as the body for `cursor-panel.sh --prompt-file` (shared `--model` seats) or as the common contract inside each `prompts/seat-*.md` passed to `--seat`. For deliberately distinct personas, **use `--seat`** — one prompt file per seat. Keep the contract identical; vary the persona header.
-
-Prompt files live in the session `prompts/` directory, not in `panel/`. Distinct personas:
+Cursor seats use `scripts/cursor-panel.sh --seat` (or `--model` plus one shared prompt) into `panel/`. Prompts live under `prompts/`, not `panel/`. Every Cursor prompt is **read-only**; `git status` before and after because `--force` can edit the tree.
 
 ```
-./scripts/cursor-panel.sh \
-  --seat {id} council/{slug}/prompts/seat-a.md \
-  --seat {id} council/{slug}/prompts/seat-b.md \
-  --out-dir council/{slug}/panel
+COUNCIL MODE 2 — INDEPENDENT DEEP DIVE
+
+Runtime model ID: {runtime_model_id}
+Assigned role: {specific_role}
+Cognitive-style-inspired lens: {assigned_lens}
+
+These are thinking lenses, not clinical claims or simulations of a real person.
+
+QUESTION
+{question}
+
+GOAL
+{goal}
+
+HARD CONSTRAINTS
+{constraints}
+
+ORCHESTRATOR SEED RESEARCH
+{contents_of_01_deep_research}
+
+DIVERGENT SEEDS
+{contents_of_02_divergent_seeds}
+
+INDEPENDENCE RULES
+- Work independently. You have not seen other panel answers.
+- Do not write "I agree with the others" or infer a consensus.
+- Do not average toward a safe, generic answer.
+- Challenge the framing when it is wrong or incomplete.
+- Preserve unusual mechanisms. This is still deepening, not final convergence.
+- Do not score, rank, or kill the seed set yet.
+- Separate verified facts, inference, and speculation.
+- Cite source URLs when you actually have them. Never fabricate citations.
+- Label time-sensitive or unverified claims.
+- Return the answer to stdout only. Do not edit the repository.
+
+TASK
+1. Reframe the question from your assigned role and lens.
+2. Inspect every seed for overlooked mechanisms, dependencies, or evidence.
+3. Deepen 3–5 seeds that your lens can uniquely develop. Explain the mechanism,
+   not just the pitch.
+4. Add at least one candidate absent from the seed set.
+5. Identify relevant facts, comparable systems, or research and state confidence.
+6. Name the strongest contradiction or framing error you found.
+7. Hand back modular building blocks another thinker could combine later.
+
+OUTPUT HEADINGS
+# {runtime_model_id} — independent deep dive
+## Assigned role and lens
+## Reframing from this lens
+## Seed-by-seed observations
+## Deepened candidates
+## One new candidate absent from the seeds
+## Facts and evidence
+## Assumptions and uncertainties
+## Contradictions or framing errors
+## Handoff building blocks
 ```
 
-`--resume` skips a seat only when the existing file's header has an exact matching `| Model (exact) | \`{id}\` |` line for the requested model. Non-empty files that lack or mismatch that provenance are refused. `outputs.manifest` in `--out-dir` is authoritative (merged, not a destructive rebuild).
+---
 
-**Read-only. Do not modify the repository or any files.** `--force` is an implementation detail of the CLI, not permission to edit.
+## 4. Cross-pollination prompt
 
-Do **not** ask for hidden chain-of-thought, internal scratchpads, or a token-by-token trace. Ask for the sections below.
-
-```
-You are a read-only researcher on a multi-model Council panel.
-Do not edit files, run mutating commands, commit, or "improve the repo."
-If you have tools, use them only to read. If you cannot research further,
-say so under Uncertainty.
-
-Seat persona: {specific persona + toolkit mode}
-Challenge / seeds: {brief + S-xx questions}
-Hard constraints: {constraints}
-Already tried / ruled out: {list}
-
-Answer with these headings only:
-1. Conclusions — numbered claims, each one or two sentences.
-2. Evidence — for each claim: what supports it, and whether that is first-hand
-   from a source you can name vs inference.
-3. Assumptions — named, not buried.
-4. Uncertainty — what you do not know; confidence low/medium/high per claim.
-5. Counterarguments — the strongest case that you are wrong.
-6. Concise rationale — one short paragraph of why this angle, not a diary of
-   steps.
-
-Rules: no two conclusions may share the same core mechanism; prefer the
-non-obvious; do not converge or score yet; do not flatten disagreement with
-other hypothetical models; do not request or emit hidden chain-of-thought.
-```
-
-## 5. Cross-pollination merge
-
-Orchestrator-only (Opus). Inputs are the panel files, cited by path.
+Run **after** independent panel files exist. The orchestrator (Opus) reads **only** the files listed in `panel/outputs.manifest`. Do not glob `panel/*.md`. Do not read `panel/README.md`, `prompts/`, or `panel/adversarial/` (that pass has not run yet). If the manifest is missing, stop. No scoring yet.
 
 ```
-Cross-pollinate. Judgement is still mostly off: you are combining, not picking
-a winner yet.
+COUNCIL MODE 3 — CROSS-POLLINATION
 
-Read these panel outputs as separate input spaces (do not average them).
-Use only files listed in panel/outputs.manifest (initial deep-dive model outputs).
-That manifest is authoritative: if it is missing, stop; do not glob panel/*.md.
-Do not read panel/README.md, prompts/, or panel/adversarial/ (adversarial has its own later manifest):
-{cite panel/<label>.md from the manifest}
+QUESTION
+{question}
 
-Using Fauconnier & Turner conceptual blending AND Koestler bisociation:
-1. List the distinct mechanisms / frames each model actually used.
-2. Produce 5 named blends. Each blend must cite at least two seats, name the
-   shared structure, and name an EMERGENT property neither seat had alone.
-3. Keep contradictions: where two seats disagree, give both claims an ID and
-   say why merging them would be a lie.
-4. Flag the 2 blends that are least obvious yet still constrained by
-   {constraints}.
+GOAL
+{goal}
 
-For every blend output: conclusions, evidence (paths), assumptions,
-uncertainty, counterarguments, concise rationale.
-Do not majority-vote. Do not dump raw panel text. Do not ask for hidden
-chain-of-thought.
+HARD CONSTRAINTS
+{constraints}
+
+ORCHESTRATOR SEED RESEARCH
+{contents_of_01_deep_research}
+
+DIVERGENT SEEDS
+{contents_of_02_divergent_seeds}
+
+INDEPENDENT PANEL OUTPUTS
+{contents_of_all_panel_model_files}
+
+RULES
+- This is recombination, not judgement. Do not score, rank, or kill candidates yet.
+- Do not collapse disagreement into a fake consensus or majority vote.
+- Preserve contradictions explicitly — unresolved tension is useful signal.
+- Every candidate must combine material from at least two different source files
+  listed in `panel/outputs.manifest`. Seed docs may be cited in addition, not as a
+  substitute for a second panel file.
+- Prefer Conceptual Blending and Bisociation (toolkit 03) over averaging pitches.
+- Separate verified facts, inference, and speculation. Never fabricate citations.
+- Return Markdown only. Do not edit the repository.
+
+TASK
+1. Inventory modular building blocks across the panel (mechanisms, evidence,
+   constraints, contradictions).
+2. Produce at least 6 candidates total:
+   - at least 3 Conceptual Blends (shared structure + emergent property)
+   - at least 3 Bisociations (collision across two frames that don't usually meet)
+3. For each candidate: name, one-line pitch, mechanism, at least two source files,
+   what each source contributed, and what emerged that neither source had alone.
+4. List preserved contradictions that later stages must not paper over.
+5. Flag any framing errors the panel collectively exposed.
+
+Write the result using the structure of `council/_template/03-cross-pollination.md`
+(source map, conceptual blends, bisociations, candidate set for adversarial).
+Do not score novelty, feasibility, or fit yet.
 ```
 
-## 6. Adversarial pass
+---
 
-Codex: `/codex:adversarial-review` on the front-runners (local plugin). Save that output under `panel/adversarial/` **with the documented Codex provenance header** (`council/_template/panel/README.md`) before listing its basename in `panel/adversarial/outputs.manifest`. Keep the initial `panel/outputs.manifest` unchanged. A raw plugin dump is not provenance-complete.
+## 5. Adversarial prompts
 
-Cursor: same contract as §4 (read-only, git-status before/after) with the body below, run through `cursor-panel.sh --seat` so the files receive cursor-panel provenance. Use a dedicated directory and its own manifest — do not use `cursor-agent.sh --out` as panel evidence:
+### Codex adversarial review
 
-```
-./scripts/cursor-panel.sh \
-  --seat {id} council/{slug}/prompts/seat-{label}-adversarial.md \
-  --out-dir council/{slug}/panel/adversarial
-```
-
-Launch both in one operator turn when concurrent tool execution is available; otherwise run them sequentially and say that they were serialized.
+Invoke through `/codex:adversarial-review`. Save under `panel/adversarial/` with the documented Codex provenance header, then list the basename in `panel/adversarial/outputs.manifest`. Keep the initial `panel/outputs.manifest` unchanged.
 
 ```
-Play devil's advocate on these front-runners: {ideas}.
-You are read-only. Do not edit the repo.
+COUNCIL MODE 4 — CODEX ADVERSARIAL REVIEW
 
-1. The 5 strongest arguments AGAINST each.
-2. Hidden assumptions, marked shakiest.
-3. The scenario where each fails badly.
-4. For each objection: a redesign that would survive it, or why it cannot.
+Runtime model ID: codex
+Assigned role: Forensic research methodologist and evidence auditor
+Cognitive-style-inspired lens: Bottom-Up Builder
 
-Be blunt; do not soften to be agreeable. Conclusions, evidence, assumptions,
-uncertainty, counterarguments, concise rationale. No hidden chain-of-thought.
+These are thinking lenses, not clinical claims or simulations of a real person.
+
+QUESTION
+{question}
+
+GOAL
+{goal}
+
+HARD CONSTRAINTS
+{constraints}
+
+CROSS-POLLINATION CANDIDATES
+{contents_of_03_cross_pollination}
+
+PRIOR EVIDENCE (optional context)
+{contents_of_01_deep_research_and_key_panel_excerpts}
+
+RULES
+- Attack the evidence and method, not the tone.
+- Separate verified facts, inference, and speculation.
+- Cite source URLs only when you actually have them. Never fabricate citations.
+- Label time-sensitive or unverified claims.
+- Do not soft-pedal to be agreeable.
+- Return the answer to stdout only. Do not edit the repository.
+
+TASK
+1. For each front-runner candidate, identify the weakest evidence link and the
+   shakiest hidden assumption.
+2. Name what would have to be fundamentally true for the candidate to work.
+3. Flag fabricated-sounding or under-sourced claims from earlier stages.
+4. Describe the failure mode that kills each candidate most cleanly.
+5. State what evidence would be required before anyone should spend a week on it.
+
+OUTPUT HEADINGS
+# codex — adversarial review
+## Method and evidence audit
+## Weakest links by candidate
+## Fundamental truths required
+## Suspected under-sourced claims
+## Cleanest kill-shots
+## Evidence required before commitment
 ```
 
-## 7. Convergence
+### Cursor red team
 
-Append after blends + adversarial notes (same scorer spirit as [`03` §8](03-combinatorial-creativity.md#8-convergence-wrapper) and [`05`](05-prompt-library.md)):
-
-```
-Converge. Judgement ON. Do not be encouraging to be nice.
-
-Inputs: blends in 03-cross-pollination.md, initial seats listed in
-panel/outputs.manifest, and Cursor red-team seats listed in
-panel/adversarial/outputs.manifest. If a manifest is missing, say so;
-do not glob. Do not treat cursor-agent.sh raw output as evidence.
-
-Score each developed concept 1-5 on novelty, feasibility, and fit to
-{goal/constraints}. Table it. Recommend the top 3 with the single biggest
-risk each. Red-team #1. Verdict: KILL, PIVOT, or VALIDATE.
-If VALIDATE, the single cheapest test that moves this from maybe to yes/no
-this week.
-
-Quality-weight the evidence; do not count how many models agreed.
-Conclusions, evidence, assumptions, uncertainty, counterarguments, concise
-rationale. No hidden chain-of-thought.
-```
-
-## 8. Ledger governance
-
-`LEDGER.md` is stigmergic shared memory **by design**. Ungoverned dumps are associated with Memory Curse (more history → worse coordination), collective false belief, and loafing in the stigmergy review — that review **motivates** these Council choices; it does not prove this exact schema.
-
-Curator-only. Compact. Quality-weighted. Contradictions cross-linked, not merged. Raw `panel/` files immutable. Stable IDs. Full entry schema at every status (`stale` / `rejected` / `superseded` included). `review-by` then `stale`. Append-only change log for every transition. **No automatic cross-session reuse.**
-
-Full table lives in `council/_template/LEDGER.md`. When you update a ledger, write a change-log line; never delete an ID.
-
-## 9. `--force` and git
-
-Cursor wrappers call:
+Send via `scripts/cursor-panel.sh --seat` into `panel/adversarial/` (own `outputs.manifest`). Do not use `cursor-agent.sh` raw `--out` as panel evidence. Default lens: Assumption Breaker + Literalist. Read-only prompt; `git status` before and after.
 
 ```
-cursor-agent -p "$prompt" --model "$model" --output-format text --force
+COUNCIL MODE 4 — CURSOR RED TEAM
+
+Runtime model ID: {runtime_model_id}
+Assigned roles (rotate through all three voices):
+- skeptical purchaser
+- exhausted end-user
+- operator who would have to run this on a bad day
+Cognitive-style-inspired lens: Assumption Breaker + Literalist
+
+These are thinking lenses, not clinical claims or simulations of a real person.
+
+QUESTION
+{question}
+
+GOAL
+{goal}
+
+HARD CONSTRAINTS
+{constraints}
+
+CROSS-POLLINATION CANDIDATES
+{contents_of_03_cross_pollination}
+
+CODEX ADVERSARIAL FINDINGS (if available)
+{contents_of_codex_adversarial}
+
+RULES
+- Stay concrete and lived-in. No abstract cheerleading.
+- Take constraints literally; refuse hand-wavy "users will figure it out."
+- Break assumptions the pitch depends on.
+- Do not average toward a safe recommendation.
+- Return the answer to stdout only. Do not edit the repository.
+
+TASK
+1. Attack each front-runner from the skeptical purchaser's incentives.
+2. Attack each from the exhausted end-user's daily friction.
+3. Attack each from the operator's failure and maintenance burden.
+4. Name the assumption that, if false, collapses the idea.
+5. Say what would make you walk away immediately.
+
+OUTPUT HEADINGS
+# {runtime_model_id} — cursor red team
+## Skeptical purchaser
+## Exhausted end-user
+## Operator on a bad day
+## Assumptions that collapse the idea
+## Immediate walk-away conditions
+## Survivors worth a cheap test (no scores yet)
 ```
 
-`--force` can edit the working tree. Council's mitigation is **not** a different flag (do not drop `--force`). It is:
+---
 
-1. `git status` / `git diff --stat` before the panel
-2. The read-only prompt in §4
-3. `git status` / `git diff --stat` after; restore if the tree moved
+## 6. Convergence prompt
 
-## 10. What not to do
+Orchestrator only. Judgement is now on.
 
-- Simulate all seats in one model and label them "Grok" / "Gemini"
-- Invent Cursor or Codex model ids
-- Ask for hidden chain-of-thought
-- Majority-vote the ledger
-- Paste panel transcripts into `LEDGER.md`
-- Skip git checks because "the prompt said read-only"
-- Reuse last session's ledger as silent ground truth
-- Converge in the same breath as diverging
-- Treat `cursor-agent.sh` raw `--out` as provenance-complete panel evidence
-- Glob `panel/*.md` instead of reading `outputs.manifest`
-- `--resume` a non-empty seat whose `| Model (exact) |` header is missing or a different id
+```
+COUNCIL MODE 5 — CONVERGE
+
+QUESTION
+{question}
+
+GOAL
+{goal}
+
+HARD CONSTRAINTS
+{constraints}
+
+FULL SESSION CONTEXT
+- Seed research: {contents_of_01_deep_research}
+- Divergent seeds: {contents_of_02_divergent_seeds}
+- Panel outputs: {files listed in panel/outputs.manifest}
+- Cross-pollination: {contents_of_03_cross_pollination}
+- Adversarial: {files listed in panel/adversarial/outputs.manifest}
+
+RULES
+- Be blunt. Do not soften to be nice. A confident KILL is a successful session.
+- Score honestly on novelty × feasibility × fit to the stated goal/constraints.
+- Do not invent consensus that the panel did not earn.
+- Preserve unresolved contradictions in the write-up.
+- Separate verified facts, inference, and speculation.
+- Propose ledger deposits; do not silently rewrite history.
+- Return Markdown for 04-synthesis.md. Do not edit unrelated repo files.
+
+TASK
+1. Score every serious candidate 1–5 on novelty, feasibility, and fit. Composite =
+   novelty × feasibility × fit. Keep evidence confidence (`low|medium|high`) separate.
+2. Recommend at most three candidates, with the largest risk for each.
+3. Red-team number one again (strongest objections, what must be fundamentally true,
+   shakiest unproven assumption, most likely failure, required redesign).
+4. Give exactly one session verdict: KILL, PIVOT, or VALIDATE. Do not soften it.
+5. Give the single cheapest decisive next test, with confirming evidence, killing
+   evidence, and the decision after either result.
+6. List unresolved contradictions and missing/failed panel members.
+7. Propose only curated ledger deposits that could alter future action.
+
+Write the result using `council/_template/04-synthesis.md`.
+```
+
+---
+
+## 7. Governed ledger
+
+`LEDGER.md` is a **session-local** stigmergic trace, not a dump of every chat and not automatic memory for later sessions. The operational rules are **Council design choices motivated by** the lit review in [`old research on startup ideas/stigmergy_memory_llm_swarms_review.md`](../old%20research%20on%20startup%20ideas/stigmergy_memory_llm_swarms_review.md) (Memory Curse, collective false belief, bystander loafing). That review did not prove this exact schema.
+
+Operational rules for `LEDGER.md`:
+
+- **Curator-only** — panel models never write the ledger.
+- **Curated** — only deposits that survive convergence, not raw panel transcripts.
+- **Quality-weighted** — each entry has quality/weight 1–5 plus a why; majority vote never increases quality.
+- **Contradictions flagged** — opposing claims stay linked, never silently merged.
+- **Full schema always** — status changes; rows and IDs are never deleted.
+- **`review-by` / stale** — expired entries become `stale` and must not drive new decisions.
+- **Bounded reinforcement** — the same claim may gain at most **+1 quality point per session**.
+- **Types** — optional CoALA-ish stores: `working` | `episodic` | `semantic` | `procedural`.
+- **Status** — `active` | `contested` | `stale` | `retracted` | `rejected` | `superseded`.
+- **No automatic cross-session reuse** — a later session may cite this file by path only after a curator/human chooses to.
+- **Intake** — cross-pollination reads `panel/outputs.manifest`; synthesis also reads `panel/adversarial/outputs.manifest`. Never glob, never README, never prompts.
+
+After synthesis, curate with:
+
+```
+CURATE THE COUNCIL LEDGER
+
+Inputs:
+{synthesis_and_source_files}
+
+Deposit only claims or procedures that could materially change a later decision.
+Do not deposit raw panel prose, generic advice, rankings, or repeated opinion.
+
+For each proposed entry:
+- choose working, episodic, semantic, or procedural;
+- assign weight 1–5 using the ledger scale;
+- state confidence (low | medium | high) and genuinely independent sources;
+- provide first-deposited, last-reviewed, and review-by dates;
+- link contradictions as separate entries;
+- permit at most +1 reinforcement per session;
+- cap weight at 5;
+- give the implication and decay/archive rule.
+
+If evidence conflicts, create linked contested entries. Never manufacture consensus.
+At session close, mark `working` entries stale or superseded rather than deleting them.
+Do not preload this ledger into another session automatically.
+
+Write the result using the session LEDGER.md schema (full-schema table + contradictions + append-only change log).
+```
+
+---
+
+## 8. Operating sequence
+
+Matches the five `/council` modes. **Local-only:** Codex plugin and Cursor Agent cannot run in Claude Code cloud/web mode. If those tools are missing, stop — do **not** replace missing models with same-model role-play.
+
+1. **Mode 1 — Diverge** — Orchestrator writes `00-brief.md`, seed research `01-deep-research.md`, and a wide seed set `02-divergent-seeds.md` (≥25 mechanism-distinct seeds; Idea Cascade / anti-clustering levers). Judgement off.
+2. **Mode 2 — Independent deep dive** — Materialize read-only prompts under `prompts/`. Fan Cursor seats with `cursor-panel.sh --seat` into `panel/` (`outputs.manifest`). Launch `/codex:review` in the same operator turn when tools can run concurrently. Provenance header required before listing Codex. `git status` before/after. No model sees other panel answers yet.
+3. **Mode 3 — Cross-pollinate** — Orchestrator runs §4 → `03-cross-pollination.md` from `panel/outputs.manifest` only.
+4. **Mode 4 — Adversarial** — Codex adversarial (§5) + Cursor red team via `cursor-panel.sh --seat` into `panel/adversarial/` (§5).
+5. **Mode 5 — Converge** — Orchestrator runs §6 → `04-synthesis.md` from both manifests, then ledger curation (§7) → `LEDGER.md`.
+
+Manual drivers: paste prompts from this file. Skill drivers: `/council` owns the lifecycle; `/ideate` only routes Recipe 5 here. Theory siblings: [03](03-combinatorial-creativity.md) for blending, [04](04-llm-divergence-techniques.md) for why simulated panels are not enough, [05](05-prompt-library.md) Recipe 5 for the composed session wrapper.

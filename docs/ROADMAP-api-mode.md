@@ -1,52 +1,155 @@
-# Roadmap — Phase 2 API-key mode
+# Roadmap: Council API mode
 
-**Not implemented.** Phase 1 is the ad-hoc, coding-agent-driven Council in this repo (`/council`, Cursor CLI wrappers, Codex plugin). This document is the productization sketch so Phase 2 is a **swap of transport**, not a rewrite of the thinking.
+## Status
 
-## Why a later phase
+Design only. No Phase 2 code is implemented. Phase 1 remains the local Claude Code + Cursor Agent + Codex plugin pipeline. This document freezes the portable surfaces Phase 2 must preserve so automation is a swap of adapters, not a rewrite of method.
 
-Phase 1 depends on the operator's desktop: `cursor-agent` and `codex` logged in, Claude Code skills driving files on disk. That is the right way to *refine prompts*. It is the wrong way to run Council as a product (no CLI logins, no `--force` on a user's repo, no Opus-in-the-loop unless they bring it).
+## Goal
 
-## What must stay portable (already true in Phase 1)
+Replace local CLI/plugin adapters with API-key provider calls while keeping the same Council lifecycle, toolkit prompts, session artifact names, persona/role assignments, and ledger governance. Operators should be able to re-run or resume a session from the same Markdown artifacts whether the panel was driven by `/council` locally or by an API orchestrator later.
 
-Keep these stable so an API orchestrator can reuse them:
+## Phase 1 assets to preserve
 
-- The five modes (diverge → deep-dive → cross-pollinate → adversarial → converge)
-- Session artifacts and names (`00-brief` … `LEDGER.md`, immutable `panel/`)
-- Toolkit `07` prompts (read-only researcher contract; conclusions / evidence / assumptions / uncertainty / counterarguments / concise rationale — **no hidden chain-of-thought requests**)
-- Ledger governance (curator-only, quality-weighted, contradictions cross-linked, compact, `review-by`/`stale`, append-only log, no automatic cross-session reuse)
-- Diverge-then-converge; no majority vote
+- Toolkit prompts and recipes in `creative-thinking-toolkit/07-multi-model-panel.md` and Recipe 5 in `05-prompt-library.md`
+- Session artifact names: `00-brief.md`, `01-deep-research.md`, `02-divergent-seeds.md`, `prompts/`, `panel/<label>.md`, `panel/outputs.manifest`, `panel/adversarial/`, `03-cross-pollination.md`, `04-synthesis.md`, `LEDGER.md`
+- Phase boundaries (diverge → independent panel → cross-pollinate → adversarial → converge → ledger curation)
+- Default persona/role/lens assignments from toolkit 07
+- Ledger schema and governance rules (curator-only, quality-weighted, contradictions flagged, `review-by`/stale, bounded +1 reinforcement, no automatic cross-session reuse, exact panel provenance/manifests)
+- Independence rule: no panel member sees other panel outputs before Mode 2 completes
 
-Phase 2 should **call the same prompt files**, not invent a second methodology.
+## Proposed architecture
 
-## What changes
+```
+Operator / scheduler
+        │
+        ▼
+  Council orchestrator (state machine)
+        │
+        ├── Prompt renderer (toolkit 07 templates + session files)
+        ├── Provider adapters (Claude / OpenAI / xAI / Google / …)
+        ├── Artifact store (session directory, file-compatible)
+        └── Ledger curator (same rules as Phase 1)
+```
 
-| Phase 1 | Phase 2 |
-|---|---|
-| Operator invokes skills | A service owns the state machine |
-| `scripts/cursor-panel.sh` + Codex plugin | Provider APIs (Anthropic, OpenAI, Google, xAI, …) with **explicit model ids the user configured** |
-| `--force` + git hygiene | No repo mutation; sandboxed or tool-less completions |
-| Files in `council/<slug>/` | Same logical documents in object storage / a DB, exportable as this folder layout |
-| Opus as curator in Claude Code | A designated curator model + optional human approval gate on ledger writes |
-| Parallelism via bash background jobs | Fan-out in the worker (still wait-all, preserve successes, name failures) |
+Phase 1 scripts (`cursor-agent.sh`, `cursor-panel.sh`, Codex slash-commands) become one adapter family. Phase 2 adds API adapters behind the same `PanelRequest` → `PanelResult` contract. The orchestrator never embeds provider SDKs directly into prompt logic.
 
-## Suggested shape (when someone builds it)
+## Provider adapter contract
 
-1. **Auth** — user-supplied API keys (or a gateway). Never commit keys. Never invent model ids; list from the provider.
-2. **Job runner** — one session = one pipeline run. Persist artifacts after each mode. Resume = skip completed seats whose existing output has exact matching provenance (same semantics as `--resume`; non-empty alone is not enough).
-3. **Panel workers** — N completions of the toolkit `07` §4 prompt, different system personas, same user body. Record exact `provider/model` provenance on every panel document.
-4. **Curator workers** — modes 1, 3, 5 (and ledger writes) on the orchestrator model. Ledger writes go through a single curator role; panel workers cannot PATCH the ledger.
-5. **Adversarial** — a second-pass completion with the §6 prompt; optional separate provider so it is not the same weights as the front-runner's author.
-6. **Evaporation** — a scheduled pass that marks `review-by` overdues `stale` without deleting IDs.
-7. **Export** — dump a run back into `council/YYYY-MM-DD-slug/` so this repo remains the source of truth for method.
+Every model call — independent deep dive, adversarial, or future API equivalents of Opus stages — goes through:
 
-## Non-goals until Phase 1 prompts have been used live
+```text
+PanelRequest
+  run_id            string     # stable id for the whole Council run
+  session_path      string     # council/YYYY-MM-DD-slug/
+  stage             enum       # research | diverge | panel | adversarial | …
+  model_id          string     # runtime id, e.g. grok, gpt, gemini, composer, codex, opus
+  role              string     # from toolkit 07 defaults (overridable)
+  lens              string     # cognitive-style-inspired lens assignment
+  prompt_template   string     # e.g. council.mode2.independent_deep_dive
+  prompt_text       string     # fully rendered prompt (placeholders already filled)
+  input_artifacts   string[]   # paths the renderer read
+  independence      bool       # true ⇒ must not receive other panel outputs
+  idempotency_key   string     # run_id + stage + model_id (+ attempt bucket)
+  timeout_ms        number
+  max_tokens        number?
+  metadata          object     # non-secret tags only
 
-- Auto-merging contradictions
-- Shared memory across users or across sessions without an explicit cite
-- "Show your chain of thought" product features
-- Treating vote counts as quality
-- Replacing `/ideate` Recipes 1–4 (those stay single-model)
+PanelResult
+  run_id            string
+  stage             string
+  model_id          string
+  status            enum       # ok | degraded | failed | timeout | skipped
+  output_markdown   string?    # body to write to artifact_path
+  artifact_path     string?    # e.g. panel/grok.md
+  error_message     string?
+  started_at        string     # ISO-8601
+  finished_at       string
+  attempt           number
+  usage             object?    # input_tokens, output_tokens, estimated_cost_usd
+  provider_request_id string?
+```
 
-## When to reopen this file
+Adapters may differ in auth and transport; they must not differ in artifact naming or prompt semantics.
 
-After several **local** Council sessions have been run and the prompts in toolkit `07` have been revised against real panel output. Until then, change the markdown, not a service.
+## Pipeline state machine
+
+```text
+brief
+  → research
+  → diverge
+  → panel_pending
+  → panel_complete_or_degraded
+  → cross_pollinate
+  → adversarial
+  → converge
+  → ledger_curated
+  → complete
+```
+
+- `panel_pending` fans out independent `PanelRequest`s with `independence=true`.
+- `panel_complete_or_degraded` advances when all requested models finish **or** when the degraded threshold is met (partial panel visible; missing models marked `failed`/`timeout`/`skipped`, never silently role-played by another model).
+- Stages after the panel may read panel artifacts; stages before must not invent them.
+
+## Persistence and idempotency
+
+- Persist every stage transition and every `PanelResult` under the session path (and optional run journal).
+- Idempotency key = `run_id` + `stage` + `model_id` (plus attempt policy). Replaying a stage must not duplicate artifacts. Resume skips a seat only when the existing output has **exact matching provenance** (same semantics as Phase 1 `--resume`; non-empty alone is not enough). Retries write `panel/<label>.attempt-N.md` then promote on success.
+- Session Markdown remains the source of truth for human inspection; any DB/object store is a cache, not a second semantic model.
+- Keep artifact filenames file-compatible with Phase 1 so local and API runs can interoperate.
+
+## Secrets and configuration
+
+- API keys and provider credentials come only from environment variables or secret storage.
+- Never write secrets into session Markdown, ledger entries, prompts checked into git, or `PanelRequest.metadata`.
+- Model routing tables (which `model_id` maps to which provider/model name) live in config, not in toolkit prompt files.
+
+## Failure, retry, and cost controls
+
+- Bounded concurrency for panel fan-out.
+- Per-request timeouts and per-run cost ceilings.
+- Retry only transient failures; cap attempts; surface partial failure in the session (degraded panel is allowed; silent substitution is not).
+- Cost and usage from `PanelResult.usage` roll up into the run journal for operator visibility.
+
+## Ledger governance in API mode
+
+Ledger rules are unchanged from Phase 1 / toolkit 07:
+
+- curated deposits only
+- quality weights 1–5
+- contradictions flagged and linked, never silently merged
+- evaporation / archive of stale working-set entries
+- bounded reinforcement (+1 weight max per claim per session)
+
+API mode may automate the curation prompt; it must not auto-merge contradictions or dump raw panel text into the working set.
+
+## Migration sequence
+
+1. Keep Phase 1 local adapters working.
+2. Introduce the orchestrator state machine reading/writing the same session files.
+3. Swap one provider adapter at a time (e.g. Codex API for `/codex:review`, then Cursor-routed models to direct providers).
+4. Compare artifact diffs on a throwaway session until outputs stay file-compatible.
+5. Only then mark local CLI adapters optional.
+
+## Acceptance criteria
+
+- A full run produces the same artifact tree and names as Phase 1.
+- Independent panel stage never leaks sibling outputs into another model's prompt.
+- Degraded runs record which models failed and still produce an honest synthesis.
+- Ledger curation obeys quality weights, contradiction links, `review-by`/stale, +1 caps, and no automatic cross-session reuse.
+- No API keys appear in session files or git.
+- Toolkit prompts remain the rendered source text (no forked prompt dialect).
+
+## Open decisions
+
+- Exact provider model IDs and fallback chains per role
+- Degraded-panel threshold (minimum models before cross-pollination may proceed)
+- Whether Opus-orchestrated stages stay on Anthropic API only or become swappable
+- Run journal format (sidecar JSON vs. extended Markdown)
+- Retention policy for raw provider logs
+
+## Non-goals
+
+- No Phase 2 code in the same change set as Phase 1 scaffolding
+- No server, UI, deployment topology, SDK packaging, database, or queue product selection
+- No public HTTP endpoint selection
+- No automatic publishing of session artifacts or ledger entries

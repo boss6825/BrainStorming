@@ -1,34 +1,74 @@
-# Brief — {YYYY-MM-DD-slug}
+# Council brief — {title}
+
+- Session: `{YYYY-MM-DD-slug}`
+- Created: `{YYYY-MM-DD}`
+- Current stage: `brief`
+- Orchestrator: `Claude Opus`
+- Execution environment: `local Claude Code`
+
+<!-- Current stage values: brief | research | diverge | panel | cross-pollinate | adversarial | converge | complete | blocked -->
 
 Copy `council/_template/` to `council/{YYYY-MM-DD-slug}/` and fill this in **before** diverging. Tight beats exhaustive. Constraints already in `path-forward/` should be reused, not re-invented.
 
-## Question / goal
+## Question
 
-{One paragraph: what this session is for.}
+- {question}
+
+## Goal or decision
+
+- {what decision or outcome this session must produce}
 
 ## Hard constraints
 
-- {budget, time, who it's for, what must remain true}
+- {constraint}
+- {constraint}
 
-## Already tried / ruled out
+## Context and evidence already available
 
-- {so the panel does not repeat them}
+- {fact or artifact already in hand}
+- {prior research / doc path}
 
-## Success looks like
+## Angles already tried or ruled out
 
-- {a falsifiable outcome: a shortlist, a kill, a research question, a cheapest next test}
+- {angle} — ruled out because {reason}
+- {angle} — already tried; result {result}
 
-## Out of scope
+## Success criteria
 
-- {what this session will not decide}
+- {observable success criterion}
+- {observable success criterion}
+
+## Kill criteria
+
+- {condition that ends the idea without further polish}
+- {condition that ends the idea without further polish}
+
+## Unknowns requiring research
+
+- {unknown}
+- {unknown}
+
+## Scope boundaries
+
+### In scope
+
+- {in-scope item}
+- {in-scope item}
+
+### Out of scope
+
+- {out-of-scope item}
+- {out-of-scope item}
 
 ## Panel plan (filled by `/council` before deep-dive)
 
-| Seat | Model id (exact) | Persona / mode (from toolkit 02/04/07) | Prompt file | Seeds / questions it gets |
+Discover Cursor ids with `cursor-agent --list-models`. Do not invent a Codex model id.
+
+| Seat | Model id (exact) | Persona / mode | Prompt file | Seeds / questions |
 |---|---|---|---|---|
-| Cursor 1 | {from `cursor-agent --list-models`} | | `prompts/seat-{label}.md` | |
-| Cursor 2 | | | `prompts/seat-{label}.md` | |
-| Codex | {local default; do not invent an id} | | (plugin turn; save `panel/codex-<slug>.md` **with documented provenance header**, then append to `panel/outputs.manifest`) | |
+| Cursor 1 | {from `--list-models`} | | | |
+| Cursor 2 | | | | |
+| Codex | {local default} | | | |
 
 ## Git baseline (required before `--force` panel)
 

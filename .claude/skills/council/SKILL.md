@@ -1,33 +1,47 @@
 ---
 name: council
 description: >-
-  Orchestrator for Council, the multi-model panel of experts in this repo.
-  Use WHENEVER the user wants a heterogeneous LLM panel, a Council session,
-  parallel deep-dives via Cursor CLI and Codex, cross-pollination across
-  models, or a governed ledgered research/ideation run — even if they say
-  "panel", "fan out", "ask grok/gemini/codex too", or "Recipe 5". Prefer this
-  over simulating a panel inside a single model. Local Claude Code only for
-  the Cursor/Codex seats; cloud mode can still prepare the session folder.
+  Run or resume a local, ad-hoc multi-model Council session that preserves
+  divergence, fans independent deep dives across Cursor and Codex, cross-pollinates
+  their findings, adversarially reviews candidates, and converges to an honest
+  KILL, PIVOT, or VALIDATE verdict. Use WHENEVER the user wants a heterogeneous
+  LLM panel, "panel", "fan out", "ask grok/gemini/codex too", or Recipe 5.
+  Local Claude Code for Cursor/Codex seats; cloud/web may scaffold files but
+  must not simulate missing members.
 ---
 
-# Council — orchestrator
+# Council — multi-model session orchestrator
 
-Your job is to run a **real** multi-model panel, not a costume change inside one model. Simulated PanelGPT (toolkit [`04`](../../../creative-thinking-toolkit/04-llm-divergence-techniques.md)) is a fallback only when Cursor/Codex are unavailable; say so if you fall back.
+Operator skill for a diverge → independent panel → cross-pollinate → adversarial →
+converge session. Full prompt templates live in
+[`creative-thinking-toolkit/07-multi-model-panel.md`](../../../creative-thinking-toolkit/07-multi-model-panel.md)
+(Recipe 5 in [`05`](../../../creative-thinking-toolkit/05-prompt-library.md)). Blending
+methods: [`03`](../../../creative-thinking-toolkit/03-combinatorial-creativity.md). Panel /
+persona precedent: [`04`](../../../creative-thinking-toolkit/04-llm-divergence-techniques.md).
+Ledger policy: [`council/_template/LEDGER.md`](../../../council/_template/LEDGER.md).
+Cursor mechanics: [`ask-cursor`](../ask-cursor/SKILL.md). Local binaries: [`council-setup`](../council-setup/SKILL.md).
 
-Theory and paste-ready prompts: [`creative-thinking-toolkit/07-multi-model-panel.md`](../../../creative-thinking-toolkit/07-multi-model-panel.md). Session files: [`council/_template/`](../../../council/_template/). How-to: [`council/README.md`](../../../council/README.md). Cursor mechanics: [`ask-cursor`](../ask-cursor/SKILL.md). Local binaries: [`council-setup`](../council-setup/SKILL.md).
-
-Do **not** inline those templates here. Read them when you need the full prompt.
+This file is *how to run*. Do not inline those prompts here.
 
 ## Two rules that still apply
 
 1. **Diverge, then converge — never both at once.** Label the mode you are in.
 2. **Fight the diversity trap.** Different model vendors are the diversity lever. Still apply no-repeat / make-it-weirder / distinct personas. Do not let five models answer the same generic prompt and call it a panel.
 
-Also: **quality-weighted ledger, never majority vote.** See `council/_template/LEDGER.md`.
+Also: **quality-weighted ledger, never majority vote.**
 
 ## Hidden chain-of-thought is forbidden
 
 Never ask a model to dump hidden chain-of-thought, internal scratchpads, or "every token you thought." Ask for **conclusions, evidence, assumptions, uncertainty, counterarguments, and a concise rationale.**
+
+## Execution boundary
+
+- **Local Claude Code for panel seats.** Codex plugin and `cursor-agent` are not available in Claude Code cloud/web. Cloud/web **may** copy `_template/`, fill the brief, and write prompt files. It must **not** invent panel outputs or role-play missing Cursor/Codex members.
+- **Never simulate a missing panel member** with Opus. A missing member is a disclosed gap or a blocked session.
+- **Never expose one panel member's answer to another during Mode 2.**
+- Run `/council-setup` before any external Cursor/Codex work.
+- Use actual model IDs from `cursor-agent --list-models`. Do not invent CLI IDs. Do not invent a Codex model id; inherit the local default (`.codex/config.toml` sets effort only).
+- Drive Codex via plugin skills only: `/codex:review`, `/codex:adversarial-review`, `/codex:rescue`.
 
 ## `--force` + git (non-negotiable)
 
@@ -40,39 +54,47 @@ cursor-agent -p "$prompt" --model "$model" --output-format text --force
 `--force` can edit the repo. Before any `cursor-agent.sh` / `cursor-panel.sh` call:
 
 1. Run `git status` and `git diff --stat`. Record the baseline in `00-brief.md`.
-2. Use the **read-only panel prompt** from toolkit `07`. The model is a researcher. It must not patch, create files, commit, or "tidy the repo."
+2. Use the **read-only** Mode 2/4 prompts from toolkit `07`. The model is a researcher. It must not patch, create files, commit, or "tidy the repo."
 3. After the fan-out, `git status` / `git diff --stat` again. If the tree changed unexpectedly, **stop**, report, restore, and do not cross-pollinate until the tree is understood.
 
-## Session lifecycle
+## Before starting
 
-1. If `codex` / `cursor-agent` might be missing, run [`council-setup`](../council-setup/SKILL.md) first (or tell the user to).
-2. Copy the template (do not invent a parallel layout):
+1. Confirm whether this environment can run `cursor-agent` / Codex. If cloud/web: scaffold only, then stop before Mode 2.
+2. Run `/council-setup` when local tools might be missing.
+3. Decide: **new session** or **resume** an existing `council/YYYY-MM-DD-slug/` folder.
+
+## New session
+
+1. **Slug.** Lowercase topic words; replace each run of non-`[a-z0-9]` with `-`; collapse repeated hyphens; trim leading/trailing hyphens. Empty fallback: `session`.
+2. **Folder.** `council/YYYY-MM-DD-slug` using the local date. On collision, append `-2`, `-3`, … — **never overwrite**.
+3. **Scaffold.**
 
    ```bash
-   cp -R council/_template council/YYYY-MM-DD-slug
+   cp -R council/_template "council/YYYY-MM-DD-slug"
    ```
 
-3. Fill `00-brief.md` (goal, constraints, already-tried, success test). Reuse `path-forward/` constraints when this is a real decision.
-4. Run the five modes below, writing the matching files. Skip a mode only if the user explicitly wants a partial run.
-5. Curate `LEDGER.md` yourself (Opus/operator). Panel models never write it.
-6. Land: top 2–3 concepts + cheapest next test, or a KILL, plus ledger IDs.
+4. **Brief.** Fill `00-brief.md` (goal, hard constraints, angles already tried / ruled out, kill criteria). Ask the user only if something material is missing.
+5. **Model discovery.** Run `cursor-agent --list-models`. Map actual IDs to default roles from toolkit `07`. If a family is unavailable, record a **deliberate reassignment** in the brief. If fewer than **two distinct Cursor lenses** are available, or Codex is unavailable → mark the session **blocked** (local run) or stop after prompts (cloud).
+6. Set `Current stage` in `00-brief.md` and proceed through the modes.
 
-Session path: `council/YYYY-MM-DD-slug/`.
+## Resume a session
 
-## Mode 1 — Diverge (Opus)
+1. Open the existing session folder. Read `00-brief.md` (including Current stage) and which artifacts already exist.
+2. **Never overwrite** substantive completed stages.
+3. Continue at the **first incomplete gate**. Retry failed Cursor seats with `cursor-panel.sh --resume` (exact provenance match) or `--seat` into empty/missing files. Do not re-run successful seats.
+4. Update `Current stage` after each durable stage lands.
 
-Write `02-divergent-seeds.md` (and `01-deep-research.md` if the space is not already mapped). Use toolkit `07` § diverge + generators from `01`–`04`. Judgement off. Unique mechanisms. Seeds later in the list weirder than the first.
+## Mode 1 — Research and diverge
 
-If the user asked `/ideate` to research a space, you may run Recipe 3 first as `01-deep-research.md`, then diverge.
+1. Write `01-deep-research.md` (Opus seed research). Consult only **relevant non-stale** prior ledger entries the operator explicitly cites — do not dump whole histories.
+2. Write `02-divergent-seeds.md` with **≥25 mechanism-distinct** seeds. Use toolkit diversity levers (`07`, `02`, `04`); judgement off; no scoring yet. Later seeds weirder than the first.
+3. Update `Current stage`.
 
-## Mode 2 — Deep-dive (the panel)
+## Mode 2 — Independent deep-dive panel
 
-This is the parallel deepening and the wall-clock saver.
-
-1. Discover Cursor ids with `cursor-agent --list-models` (never invent an id).
-2. Assign **distinct** personas/modes (toolkit `02` / `04` / `07`) to seats. Specific beats generic. Cognitive-style-inspired, not clinical, not a stereotype, not a real person.
-3. Materialize prompts under `prompts/`, **not** under `panel/`. Use `prompts/shared.md` for the shared contract and one `prompts/seat-<label>.md` per Cursor seat that needs a distinct persona (toolkit `07` §4). `--seat` is required whenever personas are deliberately different.
-4. Fan out Cursor seats (all `--seat` / `--model` children launch concurrently):
+1. Assign **distinct** personas/lenses (toolkit `02` / `04` / `07`) to seats. Specific beats generic. Cognitive-style-inspired, not clinical.
+2. Materialize prompts under `prompts/`, **not** under `panel/`. Use `prompts/shared.md` for the shared contract and one `prompts/seat-<label>.md` per Cursor seat that needs a distinct persona. `--seat` is required whenever personas are deliberately different.
+3. Fan out Cursor seats (all `--seat` / `--model` children launch concurrently):
 
    ```bash
    ./scripts/cursor-panel.sh \
@@ -81,19 +103,21 @@ This is the parallel deepening and the wall-clock saver.
      --out-dir council/YYYY-MM-DD-slug/panel
    ```
 
-   Shared prompt only (no persona split): `--model <id> --model <id> --prompt-file council/YYYY-MM-DD-slug/prompts/shared.md`. Combining `--model` and `--seat` is allowed; only `--model` seats need the shared prompt. Use `--resume` to fill missing seats: skip only when the existing file is a **non-empty regular** file whose header has an **exact** matching `| Model (exact) | \`id\` |` line for the requested model. Empty regular files are rerun. A non-empty regular file that lacks or mismatches that provenance is refused (not skipped, not overwritten). Directories/symlinks are refused. `--overwrite` only when the operator means to replace a regular seat file. `outputs.manifest` is authoritative: each `cursor-panel.sh` publication merges retainable prior entries (including manually recorded Codex artifacts that are safe relative basenames naming existing non-empty regular non-symlink files) with this run's published or resume-skipped seats, drops stale/unsafe/traversal/absolute paths, and removes duplicates.
-5. **Launch Codex in the same operator turn as the Cursor fan-out** when the runtime can execute tools concurrently (parallel tool calls in one message: `cursor-panel.sh` + `/codex:review` or a fresh Codex turn). If this environment serializes tool calls, say so and run them back-to-back — do not claim wall-clock overlap that did not happen. Save Codex as `panel/codex-<slug>.md` **with the documented provenance header** from `council/_template/panel/README.md` (exact local model id + exact plugin invocation). Only then append that basename to `panel/outputs.manifest`. A raw plugin dump is **not** provenance-complete. Do not invent a Codex model id; inherit the local default from `.codex/config.toml` (effort only) / the plugin.
-6. Confirm every published Cursor seat file records **exact model provenance** (`| Model (exact) | \`id\` |`). Treat `panel/outputs.manifest` as the list of initial model outputs. `panel/README.md` is not a seat. Do not use `cursor-agent.sh` raw `--out` as panel evidence.
+   Shared prompt only: `--model <id> --model <id> --prompt-file council/YYYY-MM-DD-slug/prompts/shared.md`. Combining `--model` and `--seat` is allowed. `--resume` skips only on an exact matching `| Model (exact) | \`id\` |` header. Empty regular files are rerun. Missing/mismatched provenance is refused. Directories/symlinks are refused. `--overwrite` only when the operator means to replace a regular seat file. `outputs.manifest` is authoritative: later runs merge retainable prior entries (including Codex artifacts with documented headers) and drop stale/unsafe paths.
+4. **Launch Codex in the same operator turn** when tools can run concurrently. If serialized, say so. Save Codex as `panel/codex-<slug>.md` **with the documented provenance header**, then append that basename to `panel/outputs.manifest`. A raw plugin dump is not provenance-complete.
+5. Confirm every published Cursor seat records exact model provenance. `panel/README.md` is not a seat. Do not use `cursor-agent.sh` raw `--out` as panel evidence.
 
-If Cursor/Codex cannot run (cloud mode), write the prompt files under `prompts/`, stop, and tell the user to finish Mode 2 locally.
+**Panel gate.** Continue after **one** Cursor failure only if **≥2 distinct Cursor lenses** succeeded **and** Codex succeeded (provenance-complete). Otherwise mark **blocked**; retry only the failed members. Do not proceed to Mode 3 while blocked. Successful artifacts stay; failed seats are not published as evidence.
 
-## Mode 3 — Cross-pollinate (Opus)
+If Cursor/Codex cannot run (cloud), write the prompt files under `prompts/`, stop, and tell the user to finish Mode 2 locally.
 
-Read **only** the files listed in `panel/outputs.manifest` (initial deep-dive model outputs). Do not read `panel/README.md`, `prompts/`, or `panel/adversarial/` (that pass has not run yet). If the manifest is missing, stop and say so — do not glob `panel/*.md`. Write `03-cross-pollination.md` using Conceptual Blending / Bisociation (toolkit `03` + `07` merge prompt). Keep contradictions visible and cross-linked. Do not average.
+## Mode 3 — Cross-pollinate
+
+Read **only** the files listed in `panel/outputs.manifest`. Do not read `panel/README.md`, `prompts/`, or `panel/adversarial/`. If the manifest is missing, stop — do not glob `panel/*.md`. Write `03-cross-pollination.md` using Conceptual Blending / Bisociation (toolkit `03` + `07`) with **≥6 candidates**: **≥3 blends** + **≥3 bisociations**. Every candidate must cite **≥2 source panel files**. Keep contradictions visible. No scoring.
 
 ## Mode 4 — Adversarial
 
-Launch `/codex:adversarial-review` and the Cursor devil's-advocate pass **in the same operator turn** when concurrent tool execution is available; otherwise run them back-to-back and say that they were serialized. Cursor red-team still uses toolkit `07` (read-only, git-status before/after). **Always** run it through `cursor-panel.sh --seat` into a dedicated directory so the files receive cursor-panel provenance — never `cursor-agent.sh` raw `--out`:
+Launch `/codex:adversarial-review` and the Cursor devil's-advocate pass **in the same operator turn** when concurrent tools are available; otherwise serialize and say so. **Always** run Cursor red-team through `cursor-panel.sh --seat` into a dedicated directory:
 
 ```bash
 ./scripts/cursor-panel.sh \
@@ -101,11 +125,38 @@ Launch `/codex:adversarial-review` and the Cursor devil's-advocate pass **in the
   --out-dir council/YYYY-MM-DD-slug/panel/adversarial
 ```
 
-That writes `panel/adversarial/outputs.manifest`. Keep the main `panel/outputs.manifest` limited to the initial deep-dive. Save Codex `/codex:adversarial-review` as `panel/adversarial/codex-<slug>.md` (or similar) with the documented provenance header, then add that basename to `panel/adversarial/outputs.manifest`. Drop notes into `04-synthesis.md`.
+That writes `panel/adversarial/outputs.manifest`. Keep the main `panel/outputs.manifest` limited to the initial deep-dive. Save Codex adversarial as `panel/adversarial/codex-<slug>.md` with the documented provenance header, then add that basename to `panel/adversarial/outputs.manifest`. If Codex adversarial fails, attempt `/codex:rescue` **once**. If still unusable, stop before final convergence and mark blocked. Drop notes into `04-synthesis.md` — do not mutate `03-cross-pollination.md` after the fact.
 
-## Mode 5 — Converge (Opus)
+## Mode 5 — Converge and update the ledger
 
-Write `04-synthesis.md`: score novelty × feasibility × fit, red-team #1, verdict **KILL / PIVOT / VALIDATE**. Consume blends plus **initial** model outputs in `panel/outputs.manifest` **and** Cursor/Codex red-team outputs in `panel/adversarial/outputs.manifest` (not `panel/README.md`, not prompts, not raw `cursor-agent.sh` files). If the adversarial manifest is missing, say so and do not glob. Then update `LEDGER.md` as curator: compact claims with the **full entry schema** at every status (`active` / `contested` / `stale` / `retracted` / `rejected` / `superseded`), quality notes, `review-by`, contradictions, append-only change log for every transition. Never copy panel bodies into the ledger. Never reuse this ledger automatically in a later session.
+Only if **Completion gates** are met. Do not fake a synthesis.
+
+1. Write `04-synthesis.md`: score novelty × feasibility × fit; red-team #1; honest **KILL / PIVOT / VALIDATE**; single cheapest decisive test. Consume blends plus **initial** outputs in `panel/outputs.manifest` **and** red-team outputs in `panel/adversarial/outputs.manifest`.
+2. **Disclose** any missing default panel members.
+3. Curate `LEDGER.md` as curator: full schema at every status, quality notes, `review-by`, contradictions, append-only change log. Never copy panel bodies. Never reuse this ledger automatically in a later session.
+4. Update `Current stage` to complete.
+
+## Completion gates
+
+Do not complete synthesis unless all of the following hold:
+
+- Brief, deep research, and divergent seeds are substantive
+- ≥2 successful Cursor outputs from **distinct assigned** lenses, listed in `panel/outputs.manifest`
+- Successful Codex deep-dive with documented provenance, listed in that same manifest
+- Cross-pollinated candidates each combine ≥2 source files
+- Both Codex and Cursor adversarial findings exist in `panel/adversarial/outputs.manifest`
+- Synthesis includes scorecard, red-team, verdict, decisive test, and ledger update
+- Missing default members are disclosed
+
+## Recovery
+
+| Situation | Action |
+|---|---|
+| Single Cursor model fails | Do not block siblings; retry that seat with `cursor-panel.sh --resume` or `--seat` |
+| Codex deep-dive / adversarial fails | `/codex:rescue` once; if still unavailable, stop before final convergence, mark blocked |
+| <2 distinct Cursor lenses succeed | Stop before cross-pollination; mark blocked |
+| Cloud/web environment | Scaffold prompts; do not simulate members |
+| Resume | Never overwrite completed stages; continue at first incomplete gate |
 
 ## Routing vs `/ideate`
 
