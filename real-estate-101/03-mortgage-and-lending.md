@@ -746,34 +746,209 @@ lender's UCDP integration has to move to the new schema on that timeline.
 
 ## 6. Systems of record
 
-<!-- TODO: ICE/Encompass, Blend, nCino Mortgage, Byte, Calyx, MeridianLink, Dark
-     Matter Empower, Mortgage Cadence. AUS: DU, LPA, GUS, TOTAL Scorecard.
-     Verification: The Work Number, Truv, Plaid, Finicity, Argyle, AccountChek. Doc
-     automation: Ocrolus, Candor, Zest AI. Servicing: Black Knight MSP (now ICE),
-     Sagent, LoanCare, ServiceMac, Cenlar. POS: Blend, Maxwell, Floify. -->
+Mortgage has the most layered software stack in real estate: a loan touches six or seven
+distinct systems between application and the investor's balance sheet, and **the data is
+re-entered or re-mapped at almost every boundary.**
+
+| System | Category | Who uses it | Market position | API reality | Why it is hard to displace |
+|---|---|---|---|---|---|
+| **ICE Mortgage Technology / Encompass** | LOS (Loan Origination System) — the system of record | Processors, underwriters, closers | Dominant in US retail origination | Encompass Developer Connect exists and is real, but partner-gated and priced | It is the compliance record. Migrating an LOS is a multi-year, bet-the-company project |
+| Dark Matter (Empower), Mortgage Cadence, Byte, Calyx, MeridianLink | Competing LOS platforms | Smaller lenders, credit unions | Fragmented remainder | Varies; generally more open than ICE out of competitive necessity | Same switching cost, smaller install base |
+| **Blend, nCino Mortgage, Maxwell, Floify** | POS (Point of Sale) — the borrower-facing front end | Borrowers and LOs | Blend is the enterprise standard | Reasonable APIs | Rides on top of the LOS rather than replacing it — which is why this layer was easiest to modernise |
+| **Desktop Underwriter (Fannie), Loan Product Advisor (Freddie)** | AUS (Automated Underwriting System) | Underwriters, LOs | Mandatory in practice for conforming loans | Integrated through the LOS | These *are* the rules. You cannot compete with them; you can only feed them better |
+| GUS (USDA), TOTAL Scorecard (FHA) | Government-programme AUS | Government lending | Mandatory for those programmes | Via LOS | Same |
+| **The Work Number (Equifax)**, Truv, Plaid, Finicity, Argyle, AccountChek | Income and asset verification | Processors, underwriters | The Work Number is entrenched; challengers compete on price and coverage | Good modern APIs | Coverage of employer payroll data is the moat, not the software |
+| **Ocrolus, Candor, Zest AI** | Document extraction, automated underwriting, credit modelling | Lenders | Real adoption; Ocrolus is widely used for bank statement and paystub analysis | API-first | These are the incumbents in the exact space an AI builder would enter |
+| **ICE / Black Knight MSP** | Servicing system of record | Servicers | Dominant in large-servicer market | Gated | ICE's acquisition of Black Knight concentrated origination *and* servicing infrastructure in one vendor — note this when assessing integration leverage |
+| Sagent, LoanCare, ServiceMac, Cenlar | Servicing platforms and subservicers | Mid-market servicers | Fragmented | Varies | Subservicing is itself an outsourcing answer to this complexity |
+| **MISMO** | Data standard | Everyone | The industry XML/data standard, maintained by the MBA | It is a schema, not a service | Genuinely useful — a rare case of a real standard being adopted. Learn it if you build here |
+| Mercury Network, Reggora, Clear Capital, ValueLink | Appraisal ordering | Appraisal desks, AMCs | Fragmented | Modest | See chapter 05 |
+
+**The engineer's read.** Two facts matter more than the rest. First, **MISMO exists and
+is genuinely adopted** — mortgage is the one real estate vertical with a working data
+standard, which makes it more tractable than title or property management. Second,
+**ICE owns both the dominant origination system and the dominant servicing system.**
+Any integration strategy has to account for a single vendor sitting on both ends of the
+loan's life.
 
 ## 7. Rules, regulators, and hard constraints
 
-<!-- TODO: TRID/RESPA timing, ECOA/Reg B adverse action (CFPB Circulars 2022-03,
-     2023-03), fair lending/disparate impact, HMDA, SAFE Act/NMLS licensing, Reg Z
-     1026.36 (who may take an application / offer or negotiate terms), UDAAP,
-     appraiser independence, GLBA privacy, state licensing, CFPB enforcement posture
-     2025-2026 -->
+Mortgage is the most heavily regulated vertical in this guide. This section is where
+most AI product ideas in lending either get scoped correctly or die.
+
+### 7.1 Who may legally act as a loan originator
+
+Under the SAFE Act and Regulation Z, a **mortgage loan originator** is someone who, for
+compensation, *takes a residential mortgage loan application* or *offers or negotiates
+terms*. Doing either without an NMLS licence or registration is unlawful.
+
+The practical boundary, which is the crux for any AI lending agent:
+
+| Activity | Requires a licensed MLO? |
+|---|---|
+| Describing generally available products and rates | No |
+| Collecting documents and entering data provided by the borrower | No — clerical/administrative |
+| Verifying employment, ordering a title commitment, chasing a condition | No |
+| Explaining what a submitted document means | Generally no |
+| **Taking the application** (receiving the borrower's request for a specific loan) | **Yes** |
+| **Offering or negotiating rate, terms, or fees** | **Yes** |
+| Advising a borrower which product to choose | Yes |
+| Underwriting decisions | Not an MLO act, but a delegated authority the lender grants a trained human |
+
+**Design consequence:** the entire processing, condition-clearing, verification and
+document-assembly layer — which is where the labour actually is — sits *outside* the
+licensed act. The sales conversation sits inside it. That is a fortunate split for an
+automation builder, and it is the opposite of where most attention goes.
+
+### 7.2 Adverse action and explainability — the constraint on AI underwriting
+
+Under ECOA and Regulation B, a lender denying credit or offering materially worse terms
+must give the applicant **specific, principal reasons** — not generic ones. The CFPB has
+issued circulars making clear that using a complex or "black box" model **does not
+excuse** the obligation: if you cannot explain the reasons, you may not lawfully use the
+model to make the decision.
+
+Combine that with **fair lending and disparate impact** liability and **HMDA reporting**
+(which makes lending outcomes by race, ethnicity and sex publicly analysable — a
+genuinely unusual transparency regime that regulators and journalists actively mine),
+and the position is clear:
+
+**You may build models that assemble evidence, extract data, calculate income, flag
+inconsistencies, and prepare recommendations. Building the model that *decides* imports
+a legal obligation to explain and a fair-lending exposure most startups cannot carry.**
+
+### 7.3 Timing rules that are pure calendar arithmetic
+
+TRID (the TILA-RESPA Integrated Disclosure rule) imposes hard timing:
+
+- Loan Estimate within **3 business days** of application.
+- Closing Disclosure received at least **3 business days** before consummation.
+- Certain changes **re-trigger** the 3-day waiting period.
+- Tolerance rules limit how much specified fees may increase between the LE and the CD;
+  a breach requires a **cure** — the lender refunds the difference.
+
+This is deadline-and-reconciliation work with statutory penalties: exactly shape 4 and
+shape 5 from the orientation chapter's taxonomy. It is also why the closer's day (see
+section 4) is so tightly choreographed.
+
+### 7.4 Other binding constraints
+
+- **Appraiser Independence Requirements (AIR).** Production staff may not influence,
+  select, or pressure an appraiser. This forces the AMC layer to exist and forbids
+  certain communications outright — a constraint on any tool that connects sales staff
+  to valuation.
+- **UDAAP.** Unfair, deceptive or abusive acts and practices — a broad catch-all that
+  covers borrower-facing communications, including automated ones.
+- **GLBA and state privacy law.** Borrower files contain among the most sensitive
+  personal data any consumer produces: full tax returns, bank statements, employment
+  records. Data handling standards are correspondingly strict, and lenders'
+  vendor-management reviews are onerous. Budget real time for security review before
+  your first enterprise sale.
+- **State licensing.** Lenders and MLOs are licensed state by state, each with its own
+  requirements and continuing education — a recurring compliance chore in its own right.
+- **QM / ATR.** Ability-to-Repay rules and the Qualified Mortgage definition constrain
+  what may be originated and documented.
+
+### 7.5 A note on regulatory posture
+
+The CFPB's enforcement intensity has varied sharply between administrations, and changed
+materially during 2025. **Do not design a compliance strategy around a snapshot of
+enforcement appetite.** The statutes and regulations remain in force regardless of who
+is enforcing them, private litigation continues, and posture can revert faster than a
+product roadmap. Verify current status before relying on any claim about what is
+"currently enforced".
 
 ## 8. What has already been tried
 
-<!-- TODO: Better.com, Rocket Logic, Zest AI, Candor autonomous underwriting claims,
-     Ocrolus adoption, failed "one-click mortgage" promises, why cost-per-loan still
-     high after 20 years of tech -->
+| Attempt | What it tried | Outcome | The lesson |
+|---|---|---|---|
+| **Better.com** | Fully digital, commission-free origination; "one-click mortgage" | Grew enormously in the low-rate era, went public via SPAC, then contracted severely | The technology genuinely reduced friction in the *front end*. It did not eliminate underwriting, verification, or the cost of the back office. Volume-driven models are brutally exposed to rate cycles |
+| **Rocket** | Scale plus in-house technology and heavy brand spend | The most successful US retail originator by volume | Its advantage is manufacturing scale and marketing, not a technical trick others cannot copy |
+| **Zest AI** | Machine-learning credit underwriting with fair-lending tooling | Real adoption, notably among credit unions | The viable version of AI underwriting ships **with** explainability and fair-lending analysis, not despite it. That is the product, not an add-on |
+| **Candor** | Autonomous underwriting with a warranty on its decisions | Adopted, but has not displaced human underwriting | The warranty was the interesting part: someone had to take the liability for the machine's decision |
+| **Ocrolus** | Document classification and data extraction on borrower documents | Widely used | Extraction is **solved and commoditised**. Do not build a paystub parser as a business |
+| **Blend** | Modern borrower-facing point of sale | Widely deployed; the public company has struggled | The front end was the easiest part to modernise and therefore the least defensible |
+| **Verification challengers (Truv, Argyle, Finicity)** | Break Equifax's grip on payroll verification | Real traction | Coverage of employer data is the moat. Software alone does not win |
+| **Offshore BPO (Firstsource, Sutherland, WNS, Infosys BPM, Visionet, Altisource, captives)** | Move processing, indexing, QC and servicing support to India and the Philippines | Large, mature, profitable industry | **This is the incumbent solution and your real competitor.** Much of the drudgery in this chapter is already being done by a trained analyst in India at a fraction of a US salary |
+
+**The synthesis, and the most important paragraph in this chapter:** twenty years of
+mortgage technology has repeatedly attacked the **front end** — the application, the
+portal, the borrower experience — because it is visible and demos well. Cost per loan
+has nonetheless stayed stubbornly high, because the cost is in the **middle**: condition
+clearing, verification, exception handling, and the chasing of third parties who have no
+incentive to hurry. That middle is where the labour is, where the offshore teams sit,
+and where almost nobody has built a credible product. It is also, per section 7.1,
+**largely outside the licensed act.**
 
 ## 9. Where the human genuinely adds value
 
-<!-- TODO -->
+- **Judgment on the messy file.** A self-employed borrower with three entities, K-1s,
+  depreciation add-backs and a partial year of income requires interpretation, not
+  extraction. Roughly this kind of file is why underwriters exist.
+- **Exception decisions.** Deciding whether a compensating factor offsets a weakness is
+  a delegated risk judgment the lender is answerable for.
+- **Reading intent behind documents.** Spotting that a "gift" is actually an undisclosed
+  loan, or that a bank statement's deposits do not match the stated income story. Fraud
+  detection has real pattern-matching content, but the final call is judgmental.
+- **Borrower reassurance at the moment of panic.** People are terrified during a home
+  purchase. A large part of an LO's real job is emotional management.
+- **Negotiating with counterparties.** Getting a payoff department, an HOA, or an
+  employer's HR to respond is persistence plus relationship.
+- **Loss mitigation conversations.** Discussing default with a distressed borrower is
+  regulated, emotionally heavy, and consequential. Not a chatbot's job.
+- **Owning the decision.** A human signature carries accountability. Regulators,
+  investors and courts expect a responsible person.
 
 ## 10. Glossary
 
-<!-- TODO -->
+- **1003 / URLA** — The Uniform Residential Loan Application.
+- **1004** — Fannie Mae's standard single-family appraisal form.
+- **4506-C** — IRS form authorising a lender to pull tax transcripts.
+- **AMC** — Appraisal Management Company; intermediary that orders appraisals, created largely to satisfy appraiser independence rules.
+- **ATR / QM** — Ability-to-Repay; Qualified Mortgage.
+- **AUS** — Automated Underwriting System (DU, LPA, GUS, TOTAL).
+- **Clear to close (CTC)** — All conditions satisfied; the file may proceed to closing.
+- **Closing Disclosure (CD)** — The final itemised terms and costs, subject to a 3-business-day rule.
+- **Condition** — Something the underwriter requires before approving. "Prior to doc" and "prior to funding" conditions are the grind.
+- **Conforming loan** — A loan meeting Fannie/Freddie requirements including the loan limit.
+- **Correspondent / wholesale / retail** — The three origination channels.
+- **DTI** — Debt-to-income ratio.
+- **Encompass** — ICE's loan origination system; the dominant LOS.
+- **Escrow / impound account** — Servicer-held account for taxes and insurance.
+- **Funding** — Actual disbursement of loan proceeds.
+- **Gain on sale** — Profit from selling an originated loan into the secondary market.
+- **GSE** — Government-Sponsored Enterprise: Fannie Mae, Freddie Mac.
+- **HMDA** — Home Mortgage Disclosure Act; requires public reporting of lending data.
+- **LE** — Loan Estimate; due within 3 business days of application.
+- **LOS** — Loan Origination System.
+- **LTV / CLTV** — Loan-to-value; combined loan-to-value.
+- **MISMO** — The mortgage industry's data standard.
+- **MLO** — Mortgage Loan Originator; a licensed or registered individual.
+- **MSR** — Mortgage Servicing Rights; the tradable right to service a loan for a fee.
+- **NMLS** — Nationwide Multistate Licensing System.
+- **POS** — Point of Sale; the borrower-facing application front end.
+- **Pre-approval vs pre-qualification** — Verified vs unverified assessment of borrowing capacity.
+- **Secondary market** — Where originated loans are sold to investors.
+- **Servicing** — Collecting payments, managing escrow, handling default after origination.
+- **Subservicer** — A firm servicing loans on behalf of the owner of the servicing rights.
+- **TRID** — TILA-RESPA Integrated Disclosure rule; governs LE/CD content and timing.
+- **Underwriting** — Deciding whether the loan meets guidelines and is an acceptable risk.
+- **VOE / VOD / VOI** — Verification of employment / deposits / income.
 
-## 11. Sources
+## 11. Verify before you rely on this
 
-<!-- TODO -->
+| Claim | Why it moves | Check against |
+|---|---|---|
+| MBA cost-to-originate per loan | Reported quarterly; swings with volume | MBA Quarterly Mortgage Bankers Performance Report |
+| CFPB enforcement posture and circular status | Changed materially in 2025 and can revert | CFPB website; counsel |
+| UAD 3.6 / Uniform Property Dataset rollout timing | Phased GSE implementation with revised dates | Fannie Mae and Freddie Mac UAD pages |
+| Conforming loan limits, LTV caps, guideline details | Updated at least annually | Fannie Mae Selling Guide; Freddie Mac Seller/Servicer Guide |
+| Better.com, Blend and other vendors' current condition | Fast-changing commercially | Company filings and trade press |
+| ICE/Black Knight integration and pricing | Post-merger consolidation ongoing | ICE investor materials |
+| Offshore BPO pricing and headcount | Commercially sensitive; public figures are sparse | Direct quotes; provider disclosures |
+| State licensing requirements | Amended regularly | NMLS Resource Center |
+
+**Method note.** Sections 1-5 were written with live web research; sections 6-11 from
+domain knowledge after a rate limit ended the research run. Nothing here is legal or
+compliance advice; mortgage rules are detailed, current, and consequential, and this is
+an orientation document rather than a control.

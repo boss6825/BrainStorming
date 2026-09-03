@@ -521,43 +521,198 @@ schedules (see §11) — treat it as practitioner self-report, not a payroll aud
 
 ## 5. The document & data layer
 
-<!-- TODO: LOI, lease + amendments, estoppel certificate, SNDA, rent roll, T-12
-     operating statements, OM, BOV, PSA, ALTA survey, Phase I ESA, PCA, Argus
-     file, loan term sheet, CMBS servicer reports, CREFC Investor Reporting
-     Package, tenant financials, CAM reconciliation statement, annual budget
-     package. Format + standardised vs bespoke per doc. -->
+CRE's defining data fact: **there is no MLS.** Nothing forces disclosure, nothing
+standardises a lease, and every meaningful number is private. Everything below follows
+from that.
+
+| Document | Produced by | Standardised? | Length | Why it matters |
+|---|---|---|---|---|
+| **Lease** | Landlord's counsel, negotiated | **No** — every landlord has its own form, then it is redlined | 40-150 pages plus exhibits | The single most important document in CRE and the source of its most notorious drudgery. See lease abstraction below |
+| Lease amendments, extensions, expansions | Either party | No | 2-20 pages each | A 20-year tenancy may have eight amendments; the operative terms are scattered across all of them |
+| **Lease abstract** | Analyst or offshore team | Firm-specific template | 2-6 pages / 80-150 fields | The structured summary someone hand-builds from the above. **The canonical CRE drudge task** |
+| LOI (Letter of Intent) | Broker | No, but conventional | 2-8 pages | Non-binding term sheet; the negotiation happens here |
+| **Rent roll** | Property manager | No | Excel | Every tenant, suite, area, rent, escalation, expiry. Exported from Yardi/MRI, then hand-corrected. Underwriting starts here |
+| **T-12 / operating statements** | Property accountant | No | Excel/PDF | Trailing twelve months of income and expense. Must be normalised before use |
+| Estoppel certificate | Tenant, chased by broker/analyst | Semi-standard | 2-5 pages | Tenant confirms the lease terms and that nobody is in default. Required at every sale and financing. **Chasing these is a legendary grind** |
+| SNDA | Tenant, landlord, lender | Semi-standard | 5-15 pages | Subordination, non-disturbance, attornment. Same chasing problem |
+| **CAM reconciliation statement** | Property accountant | No | Excel + letter | Annual true-up of estimated vs actual operating expenses, allocated per lease's own rules. See below |
+| OM (Offering Memorandum) | Brokerage analyst + marketing | No | 40-120 page PDF/InDesign | The sale marketing document. Heavy production work |
+| BOV (Broker Opinion of Value) | Broker | No | Deck | Pitch document to win a listing |
+| PSA (Purchase and Sale Agreement) | Counsel | No | 40-80 pages | The sale contract |
+| Phase I ESA | Environmental consultant | Yes — ASTM standard | 60-150 pages | Environmental due diligence; standardised, which makes it tractable |
+| PCA (Property Condition Assessment) | Engineer | Semi-standard | 40-100 pages | Physical condition and capital reserve estimate |
+| ALTA/NSPS survey | Surveyor | Yes — ALTA standard | Drawing | Standardised |
+| Argus file | Analyst | Proprietary format | Model | The institutional valuation model. See systems below |
+| Loan documents / covenant certificates | Lender's counsel | No | Long | Ongoing borrower reporting obligations |
+| CREFC Investor Reporting Package | Servicer | **Yes** | Standard templates | The rare standardised CRE dataset, for CMBS loans |
+
+### The two canonical drudge tasks
+
+**Lease abstraction.** A human reads a 90-page lease plus its amendments and extracts
+80-150 fields: commencement, expiry, options and their notice windows, base rent and
+every escalation, free rent, the operating expense structure and its exclusions,
+caps and gross-ups, TI allowance, assignment and subletting rights, use clause,
+exclusivity, co-tenancy, holdover, insurance and indemnity terms. **Typical effort is
+several hours per lease**; a portfolio acquisition may involve hundreds. The work is
+routinely offshored to India. It is *the* reason lease-abstraction AI vendors exist —
+and note that they exist, so this is a contested market, not an empty one.
+
+**CAM reconciliation.** Once a year, the accountant computes actual recoverable
+operating expenses, compares them to what each tenant was billed in estimates, allocates
+the difference **according to each lease's individual rules** — different pro-rata
+bases, different exclusions, different caps, different base years, different gross-up
+conventions — and issues a true-up bill or credit. Tenants then audit it and dispute.
+The work is done in Excel, per property, per tenant, once a year, under deadline. It is
+extraordinarily mechanical and extraordinarily error-prone, and it is a rules-engine
+problem masquerading as an accounting problem.
 
 ## 6. Systems of record
 
-<!-- TODO: CoStar (+ CoStar v. CREXi litigation), Crexi, LoopNet, Reonomy,
-     Moody's/REIS, Altus Argus Enterprise (lock-in), Yardi, MRI, VTS, Dealpath,
-     Juniper Square, Agora, Cherre, Northspyre, Buildout, Apto, Placer.ai,
-     CompStak crowdsourced comps, and Excel as the actual system of record. -->
+| System | Category | Who uses it | Market position | API reality | Why it is hard to displace |
+|---|---|---|---|---|---|
+| **Excel** | Everything | Everyone | **The actual system of record in CRE.** Models, rent rolls, CAM recs, pipelines, waterfalls | N/A | Say this plainly: institutional CRE runs on spreadsheets emailed between parties, version-controlled by filename |
+| **CoStar** | Market data — properties, comps, tenants, availabilities | Brokers, investors, lenders | Dominant, expensive, litigious | No meaningful public API; redistribution prohibited | The moat is a **human research operation** — a large staff calling brokers to collect data no public record contains. Note this carefully: the moat is manual labour, not technology |
+| Crexi, LoopNet (CoStar), Reonomy, Moody's/REIS, Green Street | Data and listings challengers | Brokers, investors | Crexi is the main challenger; CoStar has litigated against it | Varies | Data licensing terms are the gate |
+| CompStak | Crowdsourced lease comps — brokers contribute comps to get access | Analysts | Niche but genuinely clever | Yes | Solved the incentive problem CoStar solves with headcount |
+| **Argus Enterprise (Altus)** | Institutional cash-flow valuation modelling | Analysts, appraisers, asset managers | Near-monopoly for institutional CRE valuation | Limited; file format is proprietary | Lenders and investors *require* an Argus file. Network requirement, not a preference |
+| Yardi, MRI, RealPage | Property accounting and management | Property managers, accountants | The systems of record for operations | Gated and often paid per interface | Discussed in chapters 02 and 09; Yardi's integration posture is a recurring practitioner complaint |
+| VTS | Leasing and asset management workflow | Landlord leasing teams | The category leader | Partner-gated | Owns the landlord's leasing pipeline data |
+| Dealpath | Acquisition pipeline management | Investment teams | Established | Yes | Sticky but not a monopoly |
+| Juniper Square, Agora, Altvia | Investor relations and fund administration | Sponsors, IR teams | Growing | Yes | See chapter 08 |
+| Buildout, Apto, ClientLook, Rethink | Brokerage CRM and OM production | Brokers | Fragmented | Varies | Small market, low switching cost |
+| Placer.ai, Lightbox, Cherre | Foot traffic, location data, data unification | Retail and industrial analysts | Specialist | Yes | Data licensing again |
+| Prophia, Leverton (MRI), Occupier, LeaseAccelerator, Visual Lease, FinQuery | Lease abstraction and lease accounting | Analysts, corporate tenants | Real but fragmented | Yes | **ASC 842 / IFRS 16 created this category** by forcing every corporate tenant to build a lease database |
+
+**The engineer's read.** CRE data is private, expensive, and legally defended. The
+practical consequences: (1) building a data product means either licensing from CoStar's
+competitors or solving the collection incentive problem the way CompStak did; (2) the
+richest *accessible* dataset is the documents your own customer already owns — their
+leases, rent rolls and statements — which is why document-intelligence products, not
+market-data products, are the tractable entry point for a newcomer.
 
 ## 7. Rules, regulators, and hard constraints
 
-<!-- TODO: brokerage licensing per state, fiduciary duty/dual agency, securities
-     law when syndicating (Reg D 506(b)/(c), accredited investor rules), NO MLS
-     IN CRE (data proprietary — the defining structural fact), confidentiality/
-     NDA norms around comps, ADA/building codes, zoning, lease accounting ASC 842
-     / IFRS 16 and the software category it created. -->
+CRE is **less** regulated than residential — which changes the shape of the opportunity
+rather than removing constraints.
+
+- **Brokerage licensing** still applies per state, with the same reserved acts as
+  residential (negotiating, representing a party for compensation).
+- **No consumer-protection overlay.** Fair housing, TRID, RESPA and TCPA's consumer
+  provisions largely do not govern institutional CRE transactions. Parties are
+  sophisticated and presumed able to protect themselves. **This is genuinely
+  liberating for a builder** — many constraints that kill residential ideas do not
+  apply here. Note that TCPA still governs calls to mobile numbers, and many brokers
+  use mobiles, so outbound calling is not consequence-free.
+- **Securities law binds anything touching capital raising.** Syndicating equity means
+  Regulation D — 506(b) prohibits general solicitation; 506(c) permits it but requires
+  verifying accredited-investor status. A product that helps sponsors market deals to
+  investors is operating inside securities law. See chapter 08.
+- **Confidentiality is contractual and cultural.** Comps and lease terms are covered by
+  NDAs and broker convention. A product that surfaces terms someone was not entitled to
+  see creates real liability.
+- **Lease accounting standards (ASC 842 / IFRS 16)** require corporate tenants to record
+  leases on the balance sheet. This is a *creator* of work — it forced every large
+  occupier to build and maintain a complete, accurate lease database, with auditors
+  checking it. An accounting standard manufactured an entire software category; worth
+  remembering as a pattern.
+- **Antitrust in data sharing.** As in multifamily rent-setting, aggregating competitors'
+  non-public pricing data carries antitrust risk. Relevant to any CRE benchmarking
+  product.
+- **ADA and building codes** bind physical space; zoning binds use.
 
 ## 8. What has already been tried
 
-<!-- TODO: WeWork collapse and what it proved about flex space, VTS Data,
-     lease-abstraction AI vendors (Leverton/MRI, Prophia, Occupier,
-     LeaseAccelerator, Kira/Litera), CompStak's crowdsourced model, CoStar's
-     moat vs CREXi's challenge, absence of iBuying in CRE and why, honest
-     read on which AI tools CRE firms actually pay for today. -->
+| Attempt | What it tried | Outcome | The lesson |
+|---|---|---|---|
+| **WeWork** | Arbitrage long leases into short flexible ones, branded as technology | Collapsed spectacularly after a failed IPO and later bankruptcy | Calling a real estate business a tech business does not change its balance sheet. Flex space is real; the leverage was not |
+| **CoStar** | Build a proprietary market dataset with a large human research team | The most valuable company in CRE data | **Manual data collection at scale was the winning strategy.** Two decades on, nobody has automated it away — worth pondering |
+| **CREXi** | Challenge CoStar with an open marketplace | Growing; litigated against by CoStar over data | Data provenance is the battleground |
+| **CompStak** | Crowdsource lease comps by paying brokers in data | Durable niche | Incentive design beat brute force for a specific dataset |
+| **VTS** | Digitise landlord leasing workflow, then sell the aggregated data | Category leader; the data product was harder than the workflow product | Workflow adoption does not automatically yield a data business |
+| **Leverton** | AI lease abstraction | Acquired by MRI | Lease abstraction AI is **real, proven, and already consolidated into incumbents.** Do not treat it as greenfield |
+| **Prophia, Occupier** | Lease intelligence for owners and occupiers | Operating | Same market, still fragmented, still not solved to everyone's satisfaction |
+| **Dealpath, Northspyre** | Pipeline and project cost management | Established | Workflow tools sell steadily but modestly |
+| **iBuying in CRE** | Never seriously attempted | — | Every asset is unique and eight figures. Instant pricing is not available |
+
+**The synthesis:** the CRE tech that worked either (a) built a proprietary dataset
+through sustained manual effort, or (b) sold workflow software to institutions with
+budget. What has repeatedly failed is trying to disintermediate the broker. Note
+carefully that **lease abstraction — the most-cited CRE AI use case — is already served
+by multiple funded vendors and an offshore industry.** That does not make it a bad
+market, but it makes it a competitive one, and anyone approaching it needs an answer
+to "why you, now".
 
 ## 9. Where the human genuinely adds value
 
-<!-- TODO -->
+- **Relationships and information asymmetry.** In a market with no MLS, knowing that a
+  tenant is quietly considering a move, or that an owner might sell, *is the product*.
+  Brokers are paid for private information and access.
+- **Negotiation of bespoke terms.** A commercial lease is genuinely negotiated, clause by
+  clause, with real money and real leverage on both sides.
+- **Judgment under uncertainty.** Underwriting a value-add deal means forming a view on
+  a submarket's trajectory five years out. Models produce numbers; the assumptions are
+  a person's opinion.
+- **Physical inspection.** Touring a building, judging the loading dock, the clear
+  height, the tenant mix, the state of the mechanicals.
+- **Institutional trust.** A pension fund allocating hundreds of millions is buying the
+  sponsor's judgment and track record.
+- **Political and community navigation** on anything requiring approvals.
+
+**The clean split:** in CRE the *deal* is human and the *documentation around the deal*
+is mechanical. Abstraction, reconciliation, rent-roll normalisation, estoppel chasing,
+OM production and IC memo assembly are all shape 1, 2, 3 and 5 work from the orientation
+taxonomy. The analyst layer of CRE is one of the most automatable job families in this
+guide — which is precisely why it has already been offshored to India at scale.
 
 ## 10. Glossary
 
-<!-- TODO -->
+- **Absorption** — Net change in occupied space over a period.
+- **Argus** — The standard institutional cash-flow modelling software for CRE valuation.
+- **BOV** — Broker Opinion of Value; a broker's pitch-stage valuation.
+- **CAM** — Common Area Maintenance; shared operating costs recovered from tenants.
+- **CAM reconciliation** — The annual true-up of estimated vs actual recoverable expenses.
+- **Cap rate** — NOI divided by value.
+- **Clear height** — Usable vertical space in a warehouse. A primary industrial value driver.
+- **CMBS** — Commercial Mortgage-Backed Securities.
+- **Co-tenancy clause** — A retail lease term letting a tenant reduce rent or exit if anchor tenants leave.
+- **Debt yield** — NOI divided by loan amount; a lender's leverage-independent risk measure.
+- **DSCR** — Debt Service Coverage Ratio; NOI divided by debt service.
+- **Effective rent** — Face rent adjusted for free rent and concessions.
+- **Escalation** — Contractual rent increases over the lease term.
+- **Estoppel certificate** — Tenant's written confirmation of lease terms and non-default.
+- **Face rent** — Headline quoted rent before concessions.
+- **Gross / modified gross / triple net (NNN)** — Lease structures dividing operating costs between landlord and tenant. Under NNN the tenant pays taxes, insurance and maintenance.
+- **Gross-up** — Adjusting variable operating expenses as if the building were ~95% occupied, so recoveries are fair at low occupancy.
+- **IC memo** — Investment Committee memorandum; the internal document recommending a deal.
+- **LC** — Leasing Commission.
+- **LOI** — Letter of Intent; non-binding term sheet.
+- **NNN** — Triple net. Also used to describe single-tenant net-lease investment property.
+- **NOI** — Net Operating Income.
+- **OM** — Offering Memorandum; the sale marketing document.
+- **PCA** — Property Condition Assessment.
+- **Phase I ESA** — Environmental Site Assessment, to ASTM standard.
+- **Percentage rent** — Retail rent based on a share of tenant sales above a breakpoint.
+- **Rent roll** — Tenant-by-tenant schedule of space, rent and lease terms.
+- **SNDA** — Subordination, Non-Disturbance and Attornment agreement.
+- **T-12** — Trailing twelve months of operating results.
+- **Tenant rep vs landlord rep** — Which side of a lease a broker represents.
+- **TI** — Tenant Improvement allowance; landlord contribution to fitting out space.
+- **Vacancy vs availability** — Space currently empty vs space being marketed, including space still occupied but coming free.
 
-## 11. Sources
+## 11. Verify before you rely on this
 
-<!-- TODO: minimum 12 real fetched sources -->
+| Claim | Why it moves | Check against |
+|---|---|---|
+| Office market conditions and distress levels | Actively evolving since 2020 | CBRE, JLL, Cushman quarterly research; Green Street |
+| CoStar v. CREXi litigation status | Ongoing | Court dockets; trade press |
+| Cap rates, rent levels, absorption | Continuously | Broker research; NCREIF |
+| Argus market position and licensing terms | Commercial terms change | Altus Group |
+| Lease abstraction vendor landscape | Consolidating | Vendor sites; MRI/Leverton |
+| Brokerage commission conventions | Vary by market and asset class; no central source | Local practitioners |
+| ASC 842 / IFRS 16 application detail | Accounting guidance evolves | FASB / IASB; audit firms |
+| Data-sharing antitrust exposure | Developing area of law | Counsel |
+
+**Method note.** Sections 1-4 were written with live web research; sections 5-11 from
+domain knowledge after a rate limit ended the research run. CRE data is private by
+nature, so figures in this chapter should be treated as indicative ranges rather than
+measured values — that caveat applies to the whole industry, not just this document.
